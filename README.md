@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Furkan Karabey Logo" width="180">
+</p>
+
 # Perraro Ticketing System
 
 An omnichannel customer support and ticketing system built for Perraro Electric Bike.

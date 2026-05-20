@@ -1,0 +1,410 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Perraro Ticketing - OpenPhone Call Intake",
+        "height": 240,
+        "width": 1936,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1280,
+        336
+      ],
+      "id": "6e3d3ee6-d278-42c3-876e-d271bfb0db31",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "openphone-call-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1248,
+        704
+      ],
+      "id": "a005e36a-d7fd-484f-81b4-c09755e4338b",
+      "name": "openphone-call-intake"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction normalizePhone(value) {\n  const digits = String(value || '').replace(/\\D/g, '');\n  if (!digits) return '';\n  if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1);\n  return digits.slice(-10);\n}\n\nreturn items.map(item => {\n  const body = item.json.body || {};\n  const object = body.data?.object || body.data || body;\n\n  const direction = object.direction || null;\n\n  const rawFrom = object.from || '';\n  const rawTo = object.to || '';\n\n  const customerPhone =\n    direction === 'outgoing'\n      ? rawTo\n      : rawFrom;\n\n  const authorType =\n    direction === 'outgoing'\n      ? 'technician'\n      : 'customer';\n\n  const phoneNormalized = normalizePhone(customerPhone);\n\n  return {\n    json: {\n      channel: 'openphone_call',\n      direction,\n      author_type: authorType,\n\n      phone_number: customerPhone,\n      phone_number_normalized: phoneNormalized,\n\n      message_type: 'call',\n      call_type: direction,\n\n      openphone_call_id: object.id || object.callId || null,\n      external_id: object.id || object.callId || null,\n\n      occurred_at: object.createdAt || object.created_at || new Date().toISOString(),\n\n      raw_payload: body\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        704
+      ],
+      "id": "c04ebddc-20a2-4925-a311-c49482ed4ba6",
+      "name": "Normalize OpenPhone Call"
+    },
+    {
+      "parameters": {
+        "tableId": "communications",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "channel",
+              "fieldValue": "={{ $('Normalize OpenPhone Call').item.json.channel }}"
+            },
+            {
+              "fieldId": "direction",
+              "fieldValue": "={{ String($('Normalize OpenPhone Call').item.json.direction || '').trim() }}"
+            },
+            {
+              "fieldId": "author_type",
+              "fieldValue": "={{ $('Normalize OpenPhone Call').item.json.author_type }}"
+            },
+            {
+              "fieldId": "phone_number",
+              "fieldValue": "={{ String($('Normalize OpenPhone Call').item.json.phone_number || '').trim() }}"
+            },
+            {
+              "fieldId": "phone_number_normalized",
+              "fieldValue": "={{ $('Normalize OpenPhone Call').item.json.phone_number_normalized }}"
+            },
+            {
+              "fieldId": "message_type",
+              "fieldValue": "={{ String($('Normalize OpenPhone Call').item.json.message_type || '').trim() }}"
+            },
+            {
+              "fieldId": "call_type",
+              "fieldValue": "={{ String($('Normalize OpenPhone Call').item.json.call_type || '').trim() }}"
+            },
+            {
+              "fieldId": "openphone_call_id",
+              "fieldValue": "={{ $('Normalize OpenPhone Call').item.json.openphone_call_id }}"
+            },
+            {
+              "fieldId": "external_id",
+              "fieldValue": "={{ $('Normalize OpenPhone Call').item.json.external_id }}"
+            },
+            {
+              "fieldId": "occurred_at",
+              "fieldValue": "={{ $('Normalize OpenPhone Call').item.json.occurred_at }}"
+            },
+            {
+              "fieldId": "raw_payload",
+              "fieldValue": "={{ $('Normalize OpenPhone Call').item.json.raw_payload }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.id || null }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        224,
+        800
+      ],
+      "id": "19acec36-028f-40ef-8011-12a1eb3fac5c",
+      "name": "Create Communication"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Call received\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        432,
+        800
+      ],
+      "id": "f2429d0b-9bd5-4666-b56c-dfc0f4231769",
+      "name": "Respond OK"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone_primary_normalized",
+              "condition": "eq",
+              "keyValue": "={{ $('Normalize OpenPhone Call').item.json.phone_number_normalized }}"
+            },
+            {
+              "keyName": "phone_secondary_normalized",
+              "condition": "eq",
+              "keyValue": "={{ $('Normalize OpenPhone Call').item.json.phone_number_normalized }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        816
+      ],
+      "id": "cdcbec26-e212-4199-afd3-a8bd7f3afc1e",
+      "name": "Find Customer",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8e5bb09b-13af-4ad0-9792-3946d94e851b",
+              "leftValue": "={{ !!$json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -272,
+        816
+      ],
+      "id": "225a3ad7-e259-4eb2-8862-60b45570d3a5",
+      "name": "IF Customer Exists?",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "tableId": "customers",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "phone_primary",
+              "fieldValue": "={{ $('Normalize OpenPhone Call').item.json.phone_number }}"
+            },
+            {
+              "fieldId": "phone_primary_normalized",
+              "fieldValue": "={{ $('Normalize OpenPhone Call').item.json.phone_number_normalized }}"
+            },
+            {
+              "fieldId": "full_name",
+              "fieldValue": "Unknown Customer"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "openphone_call"
+            },
+            {
+              "fieldId": "customer_notes",
+              "fieldValue": "Created automatically from OpenPhone call"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        912
+      ],
+      "id": "c5cb3263-98cd-4cdf-818c-0cfabe36660c",
+      "name": "Create Customer"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "communications",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "openphone_call_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.openphone_call_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        704
+      ],
+      "id": "db0e1709-3632-4553-9c67-554499ac2308",
+      "name": "Find Existing Communication",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1e9ffaf4-4f8c-43ef-8049-045e3b55f846",
+              "leftValue": "={{ !!$json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -640,
+        704
+      ],
+      "id": "5c767902-3a90-4854-beeb-b09aa6d4fec9",
+      "name": "IF Already Exists?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"duplicate\": true,\n  \"message\": \"Call already exists\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -432,
+        608
+      ],
+      "id": "871e7d9d-00c7-44b6-8907-f55f29d4079d",
+      "name": "Respond to Webhook3"
+    }
+  ],
+  "connections": {
+    "openphone-call-intake": {
+      "main": [
+        [
+          {
+            "node": "Normalize OpenPhone Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize OpenPhone Call": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Communication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Communication": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Customer": {
+      "main": [
+        [
+          {
+            "node": "IF Customer Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Customer Exists?": {
+      "main": [
+        [
+          {
+            "node": "Create Communication",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Customer": {
+      "main": [
+        [
+          {
+            "node": "Create Communication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Communication": {
+      "main": [
+        [
+          {
+            "node": "IF Already Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Already Exists?": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

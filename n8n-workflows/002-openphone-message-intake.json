@@ -1,0 +1,615 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "openphone-message-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -608,
+        1792
+      ],
+      "id": "e1bdfeed-b7a3-4dcf-988e-ff96ac6221e9",
+      "name": "openphone-message-intake"
+    },
+    {
+      "parameters": {
+        "content": "openphone-message-intake",
+        "width": 3792,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -928,
+        1344
+      ],
+      "id": "bf681aae-cc15-4a40-b6d6-e1ae06a5feda",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction clean(value) {\n  return String(value || '').trim();\n}\n\nfunction normalizePhone(value) {\n  const digits = String(value || '').replace(/\\D/g, '');\n  if (!digits) return '';\n  if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1);\n  return digits.slice(-10);\n}\n\nreturn items.map(item => {\n  const body = item.json.body || {};\n  const object = body.data?.object || body.data || body;\n\n  const direction = clean(object.direction);\n\n  const rawFrom = clean(object.from);\n  const rawTo = clean(object.to);\n\n  const customerPhone =\n    direction === 'outgoing'\n      ? rawTo\n      : rawFrom;\n\n  const authorType =\n    direction === 'outgoing'\n      ? 'technician'\n      : 'customer';\n\n  const phoneNormalized = normalizePhone(customerPhone);\n\n  const messageId = clean(object.id || object.messageId);\n\n  const messageBody = clean(\n    object.text ||\n    object.body ||\n    object.content ||\n    object.message ||\n    ''\n  );\n\n  return {\n    json: {\n      channel: 'openphone_sms',\n      direction,\n      author_type: authorType,\n\n      phone_number: customerPhone,\n      phone_number_normalized: phoneNormalized,\n\n      message_type: 'sms',\n      message_body: messageBody,\n\n      openphone_message_id: messageId || null,\n      external_id: messageId || null,\n\n      occurred_at: clean(object.createdAt || object.created_at) || new Date().toISOString(),\n\n      raw_payload: body\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        1792
+      ],
+      "id": "11b7becd-5653-44ee-9baf-ef69035234b1",
+      "name": "Normalize OpenPhone Message"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "communications",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "openphone_message_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.openphone_message_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        1792
+      ],
+      "id": "4fe473e5-cc38-4822-a5f5-714c969b1303",
+      "name": "Find Existing Message",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "78abae1b-c83c-45d2-8020-a0617464716b",
+              "leftValue": "={{ !!$json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        16,
+        1792
+      ],
+      "id": "eb25b541-eaa0-41be-bb92-6be78b6b9ee0",
+      "name": "IF Message Already Exists?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Message received\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        208,
+        1664
+      ],
+      "id": "84129a82-cf39-44b2-b6e0-592632915f4f",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone_primary_normalized",
+              "condition": "eq",
+              "keyValue": "={{ $('Normalize OpenPhone Message').item.json.phone_number_normalized }}"
+            },
+            {
+              "keyName": "phone_secondary_normalized",
+              "condition": "eq",
+              "keyValue": "={{ $('Normalize OpenPhone Message').item.json.phone_number_normalized }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        224,
+        1888
+      ],
+      "id": "eb220401-f61a-4bbe-b4bf-704f8a4476cd",
+      "name": "Find Customer",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "93dce0cc-39b5-4502-a381-8b6d6dde312b",
+              "leftValue": "={{ !!$json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        432,
+        1888
+      ],
+      "id": "ddce11f5-7af0-4c05-ab96-d8a956e21f7f",
+      "name": "IF Customer Exists?"
+    },
+    {
+      "parameters": {
+        "tableId": "customers",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "phone_primary",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.phone_number }}"
+            },
+            {
+              "fieldId": "phone_primary_normalized",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.phone_number_normalized }}"
+            },
+            {
+              "fieldId": "full_name",
+              "fieldValue": "Unknown Customer"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "openphone_sms"
+            },
+            {
+              "fieldId": "customer_notes",
+              "fieldValue": "Created automatically from OpenPhone SMS"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        656,
+        2000
+      ],
+      "id": "f747d1b5-6e45-4f9a-8a9e-f266dc1ce05b",
+      "name": "Create Customer"
+    },
+    {
+      "parameters": {
+        "tableId": "communications",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.id || null }}"
+            },
+            {
+              "fieldId": "channel",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.channel }}"
+            },
+            {
+              "fieldId": "direction",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.direction }}"
+            },
+            {
+              "fieldId": "author_type",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.author_type }}"
+            },
+            {
+              "fieldId": "phone_number",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.phone_number }}"
+            },
+            {
+              "fieldId": "phone_number_normalized",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.phone_number_normalized }}"
+            },
+            {
+              "fieldId": "message_type",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.message_type }}"
+            },
+            {
+              "fieldId": "message_body",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.message_body }}"
+            },
+            {
+              "fieldId": "openphone_message_id",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.openphone_message_id }}"
+            },
+            {
+              "fieldId": "external_id",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.external_id }}"
+            },
+            {
+              "fieldId": "occurred_at",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.occurred_at }}"
+            },
+            {
+              "fieldId": "raw_payload",
+              "fieldValue": "={{ $('Normalize OpenPhone Message').item.json.raw_payload }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        864,
+        1872
+      ],
+      "id": "519b861a-7529-4b28-b748-d09eccc881e4",
+      "name": "Create Communication"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction clean(value) {\n  return String(value || '').trim();\n}\n\nfunction getAttachments(payload) {\n  const object = payload?.data?.object || payload?.data || payload || {};\n\n  const possible =\n    object.attachments ||\n    object.media ||\n    object.files ||\n    object.images ||\n    object.data?.attachments ||\n    [];\n\n  if (Array.isArray(possible)) return possible;\n\n  if (possible && typeof possible === 'object') return [possible];\n\n  return [];\n}\n\nconst output = [];\n\nfor (const item of items) {\n  const communication = item.json;\n\n  const normalized = $('Normalize OpenPhone Message').item.json;\n  const rawPayload = normalized.raw_payload || {};\n\n  const attachments = getAttachments(rawPayload);\n\n  for (const att of attachments) {\n    const fileUrl =\n      att.url ||\n      att.fileUrl ||\n      att.downloadUrl ||\n      att.mediaUrl ||\n      att.contentUrl ||\n      att.src ||\n      null;\n\n    const fileName =\n      att.name ||\n      att.fileName ||\n      att.filename ||\n      att.title ||\n      null;\n\n    const mimeType =\n      att.mimeType ||\n      att.contentType ||\n      att.type ||\n      null;\n\n    const sizeBytes =\n      att.size ||\n      att.sizeBytes ||\n      att.bytes ||\n      null;\n\n    const externalId =\n      att.id ||\n      att.mediaId ||\n      att.fileId ||\n      normalized.openphone_message_id ||\n      null;\n\n    output.push({\n      json: {\n        communication_id: communication.id,\n        customer_id: communication.customer_id,\n        ticket_id: communication.ticket_id || null,\n\n        communication_channel: 'openphone_sms',\n        source: 'openphone',\n\n        external_id: externalId,\n        file_type: mimeType,\n        file_name: fileName,\n        file_url: fileUrl,\n        mime_type: mimeType,\n        size_bytes: sizeBytes,\n\n        storage_bucket: null,\n        storage_path: null,\n\n        raw_attachment: att\n      }\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        1872
+      ],
+      "id": "8d739b27-b640-40fe-9c64-2480a82216eb",
+      "name": "Extract Message Attachments"
+    },
+    {
+      "parameters": {
+        "tableId": "attachments",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "communication_id",
+              "fieldValue": "={{ $json.communication_id }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "ticket_id",
+              "fieldValue": "={{ $json.ticket_id }}"
+            },
+            {
+              "fieldId": "communication_channel",
+              "fieldValue": "={{ $json.communication_channel }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "={{ $json.source }}"
+            },
+            {
+              "fieldId": "external_id",
+              "fieldValue": "={{ $json.external_id }}"
+            },
+            {
+              "fieldId": "file_type",
+              "fieldValue": "={{ $json.file_type }}"
+            },
+            {
+              "fieldId": "file_name",
+              "fieldValue": "={{ $json.file_name }}"
+            },
+            {
+              "fieldId": "file_url",
+              "fieldValue": "={{ $json.file_url }}"
+            },
+            {
+              "fieldId": "mime_type",
+              "fieldValue": "={{ $json.mime_type }}"
+            },
+            {
+              "fieldId": "size_bytes",
+              "fieldValue": "={{ $json.size_bytes }}"
+            },
+            {
+              "fieldId": "storage_bucket",
+              "fieldValue": "={{ $json.storage_bucket }}"
+            },
+            {
+              "fieldId": "storage_path",
+              "fieldValue": "={{ $json.storage_path }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1824,
+        1872
+      ],
+      "id": "c2c64ddb-cb49-4164-a9d9-f5189c8ac4af",
+      "name": "Create Attachment"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.file_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "YOUR_OPENPHONE_API_KEY"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1344,
+        1872
+      ],
+      "id": "816c2da8-b993-4c98-bdd3-5d2fc0eaa1a2",
+      "name": "Download Attachment2",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "name": "={{ $('Extract Message Attachments').item.json.file_name || 'attachment' }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_DRIVE_FOLDER_ID_OPENPHONE_ATTACHMENTS",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1520,
+        1872
+      ],
+      "id": "9cdb4462-ce85-4505-9d09-dc3b8f44e50a",
+      "name": "Upload Attachment to Drive"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Message received\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1040,
+        1872
+      ],
+      "id": "cdc2d286-18f5-4d6f-8fa7-12a1e5d7e1f3",
+      "name": "Respond to Webhook1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const drive = $json;\nconst original = $('Extract Message Attachments').item.json;\n\nconst driveFileId = drive.id || drive.fileId || null;\n\nconst driveViewLink =\n  drive.webViewLink ||\n  drive.webContentLink ||\n  (driveFileId ? `https://drive.google.com/file/d/${driveFileId}/view` : original.file_url);\n\nreturn [\n  {\n    json: {\n      communication_id: original.communication_id,\n      customer_id: original.customer_id,\n      ticket_id: original.ticket_id || null,\n\n      communication_channel: original.communication_channel,\n      source: original.source,\n\n      external_id: original.external_id,\n      file_type: original.file_type,\n      file_name: original.file_name,\n      mime_type: original.mime_type,\n      size_bytes: original.size_bytes,\n\n      file_url: driveViewLink,\n      storage_bucket: 'google_drive',\n      storage_path: driveFileId,\n\n      original_file_url: original.file_url\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        1872
+      ],
+      "id": "09410f05-92a1-48ad-a91e-9d1952b98cc8",
+      "name": "Prepare Attachment Record"
+    }
+  ],
+  "connections": {
+    "openphone-message-intake": {
+      "main": [
+        [
+          {
+            "node": "Normalize OpenPhone Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize OpenPhone Message": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Message": {
+      "main": [
+        [
+          {
+            "node": "IF Message Already Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Message Already Exists?": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Customer": {
+      "main": [
+        [
+          {
+            "node": "IF Customer Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Customer Exists?": {
+      "main": [
+        [
+          {
+            "node": "Create Communication",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Customer": {
+      "main": [
+        [
+          {
+            "node": "Create Communication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Communication": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Message Attachments": {
+      "main": [
+        [
+          {
+            "node": "Download Attachment2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Attachment2": {
+      "main": [
+        [
+          {
+            "node": "Upload Attachment to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Attachment to Drive": {
+      "main": [
+        [
+          {
+            "node": "Prepare Attachment Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Extract Message Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Attachment Record": {
+      "main": [
+        [
+          {
+            "node": "Create Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

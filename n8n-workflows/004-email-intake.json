@@ -1,0 +1,851 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Perraro Ticketing - Email Intake",
+        "width": 3760,
+        "color": "#FF0000"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        -224
+      ],
+      "id": "eab6aaa7-9c4f-4e77-8a6f-a446d0f5b5ac",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -704,
+        80
+      ],
+      "id": "ed80aec3-d346-458e-b280-526c2ee9b021",
+      "name": "Gmail Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction clean(value) {\n  return String(value || '').trim();\n}\n\nfunction extractEmail(value) {\n  const text = clean(value);\n  const match = text.match(/<([^>]+)>/);\n\n  if (match) return match[1].toLowerCase();\n\n  const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i);\n  return emailMatch ? emailMatch[0].toLowerCase() : text.toLowerCase();\n}\n\nfunction extractName(value) {\n  const text = clean(value);\n\n  if (!text) return null;\n\n  const beforeBracket = text.split('<')[0].trim();\n  return beforeBracket || null;\n}\n\nfunction toIsoDate(value) {\n  if (!value) return new Date().toISOString();\n\n  const numeric = Number(value);\n\n  // Gmail internalDate çoğunlukla millisecond timestamp olarak gelir\n  if (Number.isFinite(numeric)) {\n    const milliseconds =\n      numeric > 1000000000000\n        ? numeric\n        : numeric * 1000;\n\n    const date = new Date(milliseconds);\n\n    if (!isNaN(date.getTime())) {\n      return date.toISOString();\n    }\n  }\n\n  // Normal date string gelirse onu da ISO'ya çevirir\n  const parsedDate = new Date(value);\n\n  if (!isNaN(parsedDate.getTime())) {\n    return parsedDate.toISOString();\n  }\n\n  return new Date().toISOString();\n}\n\nreturn items.map(item => {\n  const j = item.json || {};\n\n  const fromRaw =\n    j.from ||\n    j.From ||\n    j.headers?.from ||\n    j.payload?.headers?.find?.(h => h.name?.toLowerCase() === 'from')?.value ||\n    '';\n\n  const subject =\n    j.subject ||\n    j.Subject ||\n    j.headers?.subject ||\n    j.payload?.headers?.find?.(h => h.name?.toLowerCase() === 'subject')?.value ||\n    '';\n\n  const body =\n    j.textPlain ||\n    j.text ||\n    j.body ||\n    j.snippet ||\n    j.textHtml ||\n    '';\n\n  const messageId =\n    j.id ||\n    j.messageId ||\n    j.threadId ||\n    j.email_message_id ||\n    null;\n\n  const occurredAt = toIsoDate(\n    j.date ||\n    j.internalDate ||\n    j.createdAt\n  );\n\n  return {\n    json: {\n      channel: 'email',\n      direction: 'incoming',\n      author_type: 'customer',\n\n      author_name: extractName(fromRaw),\n      email_address: extractEmail(fromRaw),\n\n      subject: clean(subject),\n      message_body: clean(body),\n      message_type: 'email',\n\n      email_message_id: messageId,\n      external_id: messageId,\n\n      occurred_at: occurredAt,\n      raw_payload: j\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        80
+      ],
+      "id": "d5ede2cd-d884-4d3e-9c3c-533ede6fa225",
+      "name": "Normalize Email"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are an email classification assistant for Perraro Electric Bikes customer support.\n\nAnalyze the email and return ONLY valid JSON. Do not include markdown, explanation, or extra text.\n\nDecide:\n- whether this email is related to a customer, order, product, warranty, return, shipping, service, sales, or support request\n- whether it needs a ticket/case\n- category\n- priority\n- short summary\n\nUse these categories:\ntechnical_support\nwarranty\nreturn_refund\nshipping_delivery\nparts_request\nsales_question\norder_question\ncomplaint\ngeneral_support\nnot_customer_related\n\nUse these priorities:\nlow\nnormal\nhigh\nurgent\n\nRules:\n- Marketing emails, newsletters, spam, vendor promotions, generic notifications are not customer related.\n- Customer complaints, damaged item reports, warranty issues, return/refund requests, delivery problems, technical problems, parts requests need a ticket.\n- Simple questions can be customer related but may not need a ticket unless follow-up is required.\n\nEmail:\nFrom: {{ $json.author_name }} <{{ $json.email_address }}>\nSubject: {{ $json.subject }}\nBody: {{ $json.message_body }}\n\nReturn JSON exactly like this:\n{\n  \"is_customer_related\": true,\n  \"needs_ticket\": false,\n  \"category\": \"general_support\",\n  \"priority\": \"normal\",\n  \"summary\": \"Short summary here\",\n  \"reason\": \"Short reason here\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -304,
+        80
+      ],
+      "id": "175aa871-0596-4d6e-b83f-8ca091c1d144",
+      "name": "AI Classify Email"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction getText(j) {\n  return (\n    j.text ||\n    j.output_text ||\n    j.output?.[0]?.content?.[0]?.text ||\n    j.output?.content?.[0]?.text ||\n    j.message?.content ||\n    ''\n  );\n}\n\nreturn items.map(item => {\n  const j = item.json || {};\n  let text = getText(j);\n\n  if (typeof text !== 'string') {\n    text = JSON.stringify(text);\n  }\n\n  text = text.trim();\n\n  // Remove markdown fences if AI ever adds them\n  text = text.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();\n\n  let parsed;\n\n  try {\n    parsed = JSON.parse(text);\n  } catch (e) {\n    parsed = {\n      is_customer_related: false,\n      needs_ticket: false,\n      category: 'not_customer_related',\n      priority: 'low',\n      summary: 'AI classification parse failed.',\n      reason: text.slice(0, 500)\n    };\n  }\n\n  const email = $('Normalize Email').item.json;\n\n  return {\n    json: {\n      ...email,\n      ai_is_customer_related: !!parsed.is_customer_related,\n      ai_needs_ticket: !!parsed.needs_ticket,\n      ai_category: parsed.category || 'general_support',\n      ai_priority: parsed.priority || 'normal',\n      ai_summary: parsed.summary || '',\n      ai_reason: parsed.reason || '',\n      ai_raw: parsed\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        80
+      ],
+      "id": "bcb7f7d1-d172-4344-9cfb-77220f370e8b",
+      "name": "Parse AI Classification"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4bd765b2-3a04-4002-bb5a-37618202f8af",
+              "leftValue": "={{ $json.ai_is_customer_related }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        144,
+        80
+      ],
+      "id": "7205d742-9f63-4f1c-a434-ec96902729ab",
+      "name": "IF Customer Related?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "communications",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "email_message_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.email_message_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        336,
+        64
+      ],
+      "id": "5fab4fd6-f8b3-4f24-a11c-4394c2a71707",
+      "name": "Find Existing Email",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2e80ff13-322a-4605-997c-f3c870d3c6a9",
+              "leftValue": "={{ !!$json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        496,
+        64
+      ],
+      "id": "0fbeb71f-a73e-4036-a0dd-5332207f0f5c",
+      "name": "IF Email Already Exists?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "email_primary",
+              "condition": "eq",
+              "keyValue": "={{ $('Parse AI Classification').item.json.email_address }}"
+            },
+            {
+              "keyName": "email_secondary",
+              "condition": "eq",
+              "keyValue": "={{ $('Parse AI Classification').item.json.email_address }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        704,
+        80
+      ],
+      "id": "d3f3d055-f624-4636-8e9b-ce393d15255e",
+      "name": "Find Customer by Email",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "385ca874-fa5d-4bcb-869a-a8611189285b",
+              "leftValue": "={{ !!$json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        80
+      ],
+      "id": "0fcf801a-2ee6-41de-99a5-dd8aec4c1115",
+      "name": "IF Customer Exists?"
+    },
+    {
+      "parameters": {
+        "tableId": "customers",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "full_name",
+              "fieldValue": "={{ $('Parse AI Classification').item.json.author_name || 'Unknown Customer' }}"
+            },
+            {
+              "fieldId": "email_primary",
+              "fieldValue": "={{ $('Parse AI Classification').item.json.email_address }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "email"
+            },
+            {
+              "fieldId": "customer_notes",
+              "fieldValue": "Created automatically from customer email"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        176
+      ],
+      "id": "f9f13434-600b-468b-b46d-b4faf9263493",
+      "name": "Create Customer"
+    },
+    {
+      "parameters": {
+        "tableId": "communications",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.id || null }}"
+            },
+            {
+              "fieldId": "channel",
+              "fieldValue": "email"
+            },
+            {
+              "fieldId": "direction",
+              "fieldValue": "incoming"
+            },
+            {
+              "fieldId": "author_type",
+              "fieldValue": "customer"
+            },
+            {
+              "fieldId": "author_name",
+              "fieldValue": "={{ $('Parse AI Classification').item.json.author_name }}"
+            },
+            {
+              "fieldId": "email_address",
+              "fieldValue": "={{ $('Parse AI Classification').item.json.email_address }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Parse AI Classification').item.json.subject }}"
+            },
+            {
+              "fieldId": "message_body",
+              "fieldValue": "={{ $('Parse AI Classification').item.json.message_body }}"
+            },
+            {
+              "fieldId": "message_type",
+              "fieldValue": "email"
+            },
+            {
+              "fieldId": "email_message_id",
+              "fieldValue": "={{ $('Parse AI Classification').item.json.email_message_id }}"
+            },
+            {
+              "fieldId": "external_id",
+              "fieldValue": "={{ $('Parse AI Classification').item.json.external_id }}"
+            },
+            {
+              "fieldId": "occurred_at",
+              "fieldValue": "={{ $('Parse AI Classification').item.json.occurred_at }}"
+            },
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $('Parse AI Classification').item.json.ai_summary }}"
+            },
+            {
+              "fieldId": "raw_payload",
+              "fieldValue": "={{ $('Parse AI Classification').item.json.raw_payload }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        64
+      ],
+      "id": "dd2ebe08-b1f9-4fe9-9570-73f6ff1e45a8",
+      "name": "Create Email Communication"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ac515587-5998-40d3-b4bc-136047e82c81",
+              "leftValue": "={{ $('Parse AI Classification').item.json.ai_needs_ticket }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1408,
+        64
+      ],
+      "id": "f3288a73-da9b-4418-ae23-023038483b30",
+      "name": "IF Needs Ticket?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const communication = $('Create Email Communication').item.json;\nconst ai = $('Parse AI Classification').item.json;\n\nconst now = new Date();\nconst datePart = now.toISOString().slice(0, 10).replace(/-/g, '');\nconst timePart = now.toISOString().slice(11, 19).replace(/:/g, '');\nconst randomPart = Math.floor(Math.random() * 900 + 100);\n\nconst ticketNumber = `TKT-${datePart}-${timePart}-${randomPart}`;\n\nreturn [\n  {\n    json: {\n      ticket_number: ticketNumber,\n\n      customer_id: communication.customer_id || null,\n      order_id: null,\n\n      title: ai.ai_summary || ai.subject || 'Email support request',\n      description: ai.message_body || '',\n\n      category: ai.ai_category || 'general_support',\n      status: 'new',\n      priority: ai.ai_priority || 'normal',\n      source: 'email',\n\n      last_activity_at: ai.occurred_at || new Date().toISOString(),\n\n      communication_id: communication.id\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -48
+      ],
+      "id": "5c1f76cd-bafe-490d-98e6-f014d8192a88",
+      "name": "Prepare Ticket Data"
+    },
+    {
+      "parameters": {
+        "tableId": "tickets",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "ticket_number",
+              "fieldValue": "={{ $json.ticket_number }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "order_id",
+              "fieldValue": "={{ $json.order_id }}"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.title }}"
+            },
+            {
+              "fieldId": "description",
+              "fieldValue": "={{ $json.description }}"
+            },
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $json.category }}"
+            },
+            {
+              "fieldId": "priority",
+              "fieldValue": "={{ $json.priority }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "={{ $json.source }}"
+            },
+            {
+              "fieldId": "last_activity_at",
+              "fieldValue": "={{ $json.last_activity_at }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        -48
+      ],
+      "id": "f6a08726-b032-43e2-92d1-436bcf5cf8e9",
+      "name": "Create Ticket"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "communications",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Prepare Ticket Data').item.json.communication_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "ticket_id",
+              "fieldValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        -48
+      ],
+      "id": "38ad8a6f-9279-4b50-9840-c2e0539a1a1a",
+      "name": "Update Email Communication Ticket"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fullEmailItem = $input.first();\nconst binaries = fullEmailItem.binary || {};\n\nconst communication = $('Create Email Communication').item.json;\nconst email = $('Parse AI Classification').item.json;\n\nlet ticketId = null;\n\ntry {\n  const ticketItems = $items('Create Ticket');\n  if (ticketItems && ticketItems.length > 0) {\n    ticketId = ticketItems[0].json.id || null;\n  }\n} catch (e) {\n  ticketId = null;\n}\n\nconst attachmentEntries = Object.entries(binaries).filter(([key]) =>\n  key.startsWith('attachment_')\n);\n\nreturn attachmentEntries.map(([binaryKey, file], index) => ({\n  json: {\n    communication_id: communication.id,\n    customer_id: communication.customer_id,\n    ticket_id: ticketId,\n\n    communication_channel: 'email',\n    source: 'gmail',\n\n    email_message_id: email.email_message_id,\n\n    external_id: `${email.email_message_id}-${index}`,\n\n    file_name:\n      file.fileName ||\n      `email-attachment-${index + 1}`,\n\n    mime_type:\n      file.mimeType ||\n      null,\n\n    size_bytes:\n      file.fileSize ||\n      null,\n\n    original_binary_key: binaryKey\n  },\n  binary: {\n    data: file\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2320,
+        80
+      ],
+      "id": "674317b6-bccc-45d2-93f7-74960ffb3d7c",
+      "name": "Extract Email Attachments"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $('Parse AI Classification').item.json.email_message_id }}",
+        "simple": false,
+        "options": {
+          "dataPropertyAttachmentsPrefixName": "attachment_",
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2160,
+        80
+      ],
+      "id": "c75326b4-8463-4b1b-9f1e-6182a2b730f5",
+      "name": "Get Full Email for Attachments"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.file_name || 'email-attachment' }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_DRIVE_FOLDER_ID_EMAIL_ATTACHMENTS",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2480,
+        80
+      ],
+      "id": "e545a6ef-6103-4fa1-9c08-186b13f4e3e1",
+      "name": "Upload Email Attachment to Drive"
+    },
+    {
+      "parameters": {
+        "jsCode": "const drive = $json;\nconst original = $('Extract Email Attachments').item.json;\n\nconst driveFileId = drive.id || drive.fileId || null;\n\nconst driveViewLink =\n  drive.webViewLink ||\n  drive.webContentLink ||\n  (driveFileId\n    ? `https://drive.google.com/file/d/${driveFileId}/view`\n    : null);\n\nfunction sizeToBytes(value) {\n  if (value === null || value === undefined || value === '') return null;\n\n  if (typeof value === 'number') {\n    return Math.round(value);\n  }\n\n  const text = String(value).trim().toLowerCase();\n\n  // Sadece sayıysa direkt döndür\n  if (/^\\d+$/.test(text)) {\n    return Number(text);\n  }\n\n  const match = text.match(/^([\\d.]+)\\s*(b|kb|kib|mb|mib|gb|gib)?$/i);\n\n  if (!match) return null;\n\n  const amount = parseFloat(match[1]);\n  const unit = (match[2] || 'b').toLowerCase();\n\n  const multipliers = {\n    b: 1,\n    kb: 1000,\n    kib: 1024,\n    mb: 1000 * 1000,\n    mib: 1024 * 1024,\n    gb: 1000 * 1000 * 1000,\n    gib: 1024 * 1024 * 1024\n  };\n\n  return Math.round(amount * (multipliers[unit] || 1));\n}\n\nreturn [\n  {\n    json: {\n      communication_id: original.communication_id,\n      customer_id: original.customer_id,\n      ticket_id: original.ticket_id || null,\n\n      communication_channel: original.communication_channel,\n      source: original.source,\n\n      external_id: original.external_id,\n      file_type: original.mime_type,\n      file_name: original.file_name,\n      mime_type: original.mime_type,\n      size_bytes: sizeToBytes(original.size_bytes),\n\n      file_url: driveViewLink,\n      storage_bucket: 'google_drive',\n      storage_path: driveFileId\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        80
+      ],
+      "id": "5b577b5a-38ca-49ac-9e73-cbf5dde1c060",
+      "name": "Prepare Email Attachment Record"
+    },
+    {
+      "parameters": {
+        "tableId": "attachments",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "communication_id",
+              "fieldValue": "={{ $json.communication_id }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "ticket_id",
+              "fieldValue": "={{ $json.ticket_id }}"
+            },
+            {
+              "fieldId": "communication_channel",
+              "fieldValue": "={{ $json.communication_channel }}"
+            },
+            {
+              "fieldId": "external_id",
+              "fieldValue": "={{ $json.external_id }}"
+            },
+            {
+              "fieldId": "file_type",
+              "fieldValue": "={{ $json.file_type }}"
+            },
+            {
+              "fieldId": "file_name",
+              "fieldValue": "={{ $json.file_name }}"
+            },
+            {
+              "fieldId": "file_url",
+              "fieldValue": "={{ $json.file_url }}"
+            },
+            {
+              "fieldId": "mime_type",
+              "fieldValue": "={{ $json.mime_type }}"
+            },
+            {
+              "fieldId": "size_bytes",
+              "fieldValue": "={{ $json.size_bytes }}"
+            },
+            {
+              "fieldId": "storage_bucket",
+              "fieldValue": "={{ $json.storage_bucket }}"
+            },
+            {
+              "fieldId": "storage_path",
+              "fieldValue": "={{ $json.storage_path }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "={{ $json.source }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2832,
+        80
+      ],
+      "id": "949e7226-5ec8-4a41-8bb3-161738579d12",
+      "name": "Create Email Attachment"
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Email": {
+      "main": [
+        [
+          {
+            "node": "AI Classify Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Classify Email": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Classification": {
+      "main": [
+        [
+          {
+            "node": "IF Customer Related?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Customer Related?": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Email": {
+      "main": [
+        [
+          {
+            "node": "IF Email Already Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Email Already Exists?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Find Customer by Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Customer by Email": {
+      "main": [
+        [
+          {
+            "node": "IF Customer Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Customer Exists?": {
+      "main": [
+        [
+          {
+            "node": "Create Email Communication",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Customer": {
+      "main": [
+        [
+          {
+            "node": "Create Email Communication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Email Communication": {
+      "main": [
+        [
+          {
+            "node": "IF Needs Ticket?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Needs Ticket?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Ticket Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Full Email for Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Ticket Data": {
+      "main": [
+        [
+          {
+            "node": "Create Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Ticket": {
+      "main": [
+        [
+          {
+            "node": "Update Email Communication Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Email Communication Ticket": {
+      "main": [
+        [
+          {
+            "node": "Get Full Email for Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Attachments": {
+      "main": [
+        [
+          {
+            "node": "Upload Email Attachment to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Full Email for Attachments": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Email Attachment to Drive": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Attachment Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email Attachment Record": {
+      "main": [
+        [
+          {
+            "node": "Create Email Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

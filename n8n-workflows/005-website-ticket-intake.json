@@ -1,0 +1,610 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "website-ticket-intake",
+        "responseMode": "responseNode",
+        "options": {
+          "binaryPropertyName": "attachments"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "1789c94f-c11a-45a7-8421-94e89dcaae1c",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction clean(value) {\n  return String(value || '').trim();\n}\n\nfunction normalizePhone(value) {\n  const digits = String(value || '').replace(/\\D/g, '');\n\n  if (!digits) return '';\n\n  if (digits.length === 11 && digits.startsWith('1')) {\n    return digits.slice(1);\n  }\n\n  return digits.slice(-10);\n}\n\nfunction safeEmail(value) {\n  return clean(value).toLowerCase();\n}\n\nreturn items.map(item => {\n  const body = item.json.body || item.json || {};\n\n  const firstName = clean(body.first_name);\n  const lastName = clean(body.last_name);\n  const fullName = clean(`${firstName} ${lastName}`);\n\n  const email = safeEmail(body.email);\n  const phone = clean(body.phone);\n  const phoneNormalized = normalizePhone(phone);\n\n  const subject = clean(body.subject || 'Website support request');\n  const message = clean(body.message);\n  const category = clean(body.category || 'general_support');\n\n  return {\n    json: {\n      source: 'website_form',\n\n      first_name: firstName || null,\n      last_name: lastName || null,\n      full_name: fullName || 'Unknown Customer',\n\n      email_address: email || null,\n      phone_number: phone || null,\n      phone_number_normalized: phoneNormalized || null,\n\n      order_number: clean(body.order_number) || null,\n      product_model: clean(body.product_model) || null,\n\n      subject,\n      message_body: message,\n      category,\n\n      occurred_at: new Date().toISOString(),\n\n      raw_payload: body\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        0
+      ],
+      "id": "ec745714-bc27-4da0-9b22-2a8a48b726be",
+      "name": "Normalize Website Ticket Request"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "email_primary",
+              "condition": "eq",
+              "keyValue": "={{ $json.email_address }}"
+            },
+            {
+              "keyName": "email_secondary",
+              "condition": "eq",
+              "keyValue": "={{ $json.email_address }}"
+            },
+            {
+              "keyName": "phone_primary_normalized",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone_number_normalized }}"
+            },
+            {
+              "keyName": "phone_secondary_normalized",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone_number_normalized }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        336,
+        0
+      ],
+      "id": "ff5abedd-2380-45a4-a840-3d1296f7c8c0",
+      "name": "Find Customer",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "content": "Perraro Ticketing - Website Ticket Intake",
+        "width": 2128,
+        "color": "#EB5F14"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        -192
+      ],
+      "id": "73135532-cd3a-4b01-9287-336bbb7f0093",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d57c8c9e-070c-4bc8-9c17-d9d1762bc14c",
+              "leftValue": "={{ !!$json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        496,
+        0
+      ],
+      "id": "f2047385-025b-42e9-a22e-53f577dfb104",
+      "name": "IF Customer Exists?"
+    },
+    {
+      "parameters": {
+        "tableId": "customers",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "first_name",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.first_name }}"
+            },
+            {
+              "fieldId": "last_name",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.last_name }}"
+            },
+            {
+              "fieldId": "full_name",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.full_name }}"
+            },
+            {
+              "fieldId": "email_primary",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.email_address }}"
+            },
+            {
+              "fieldId": "phone_primary",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.phone_number }}"
+            },
+            {
+              "fieldId": "phone_primary_normalized",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.phone_number_normalized }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "website_form"
+            },
+            {
+              "fieldId": "customer_notes",
+              "fieldValue": "Created automatically from website ticket form"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        704,
+        96
+      ],
+      "id": "6f93921f-71ec-4ed0-926b-637f6ed21ccd",
+      "name": "Create Customer"
+    },
+    {
+      "parameters": {
+        "jsCode": "const customer = $json;\nconst form = $('Normalize Website Ticket Request').item.json;\n\nconst now = new Date();\nconst datePart = now.toISOString().slice(0, 10).replace(/-/g, '');\nconst timePart = now.toISOString().slice(11, 19).replace(/:/g, '');\nconst randomPart = Math.floor(Math.random() * 900 + 100);\n\nconst ticketNumber = `TKT-${datePart}-${timePart}-${randomPart}`;\n\nreturn [\n  {\n    json: {\n      ticket_number: ticketNumber,\n\n      customer_id: customer.id || null,\n      order_id: null,\n\n      title: form.subject || 'Website support request',\n      description: form.message_body || '',\n\n      category: form.category || 'general_support',\n      status: 'new',\n      priority: 'normal',\n      source: 'website_form',\n\n      product_model: form.product_model || null,\n      order_number: form.order_number || null,\n\n      last_activity_at: form.occurred_at || new Date().toISOString(),\n\n      form_data: form\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -16
+      ],
+      "id": "4373aa5d-26b7-45c9-a370-b46fe60cb282",
+      "name": "Prepare Website Ticket Data"
+    },
+    {
+      "parameters": {
+        "tableId": "tickets",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "ticket_number",
+              "fieldValue": "={{ $json.ticket_number }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "order_id",
+              "fieldValue": "={{ $json.order_id }}"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.title }}"
+            },
+            {
+              "fieldId": "description",
+              "fieldValue": "={{ $json.description }}"
+            },
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $json.category }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "priority",
+              "fieldValue": "={{ $json.priority }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "={{ $json.source }}"
+            },
+            {
+              "fieldId": "last_activity_at",
+              "fieldValue": "={{ $json.last_activity_at }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        -16
+      ],
+      "id": "67216d76-1bfd-49c2-8196-c2783126ad8f",
+      "name": "Create Website Ticket"
+    },
+    {
+      "parameters": {
+        "tableId": "communications",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "ticket_id",
+              "fieldValue": "={{ $json.id }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "order_id",
+              "fieldValue": "={{ $json.order_id }}"
+            },
+            {
+              "fieldId": "channel",
+              "fieldValue": "website_form"
+            },
+            {
+              "fieldId": "direction",
+              "fieldValue": "incoming"
+            },
+            {
+              "fieldId": "author_type",
+              "fieldValue": "customer"
+            },
+            {
+              "fieldId": "author_name",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.full_name }}"
+            },
+            {
+              "fieldId": "phone_number",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.phone_number }}"
+            },
+            {
+              "fieldId": "phone_number_normalized",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.phone_number_normalized }}"
+            },
+            {
+              "fieldId": "email_address",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.email_address }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.subject }}"
+            },
+            {
+              "fieldId": "message_body",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.message_body }}"
+            },
+            {
+              "fieldId": "message_type",
+              "fieldValue": "website_ticket_form"
+            },
+            {
+              "fieldId": "occurred_at",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.occurred_at }}"
+            },
+            {
+              "fieldId": "raw_payload",
+              "fieldValue": "={{ $('Normalize Website Ticket Request').item.json.raw_payload }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        -16
+      ],
+      "id": "73c81dba-d1b2-4747-818b-54282b20337a",
+      "name": "Create Website Communication"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1728,
+        -16
+      ],
+      "id": "32bda0f5-4be8-4df3-a4db-46158f571fcc",
+      "name": "Respond Ticket Created"
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhookItem = $('Webhook').item;\nconst binaries = webhookItem.binary || {};\n\nconst communication = $('Create Website Communication').item.json;\nconst ticket = $('Create Website Ticket').item.json;\nconst form = $('Normalize Website Ticket Request').item.json;\n\nconst binaryEntries = Object.entries(binaries);\n\nreturn binaryEntries.map(([binaryKey, file], index) => ({\n  json: {\n    communication_id: communication.id,\n    customer_id: communication.customer_id,\n    ticket_id: ticket.id,\n\n    communication_channel: 'website_form',\n    source: 'website_form',\n\n    external_id: `${ticket.ticket_number || ticket.id}-file-${index + 1}`,\n\n    file_name:\n      file.fileName ||\n      `website-attachment-${index + 1}`,\n\n    mime_type:\n      file.mimeType ||\n      null,\n\n    size_bytes:\n      file.fileSize ||\n      null,\n\n    original_binary_key: binaryKey,\n\n    ticket_number: ticket.ticket_number,\n    customer_email: form.email_address\n  },\n  binary: {\n    data: file\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        160
+      ],
+      "id": "233bd742-9a31-4274-8eb9-000573af543e",
+      "name": "Extract Website Attachments"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.file_name || 'website-attachment' }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_DRIVE_FOLDER_ID_WEBSITE_ATTACHMENTS",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1760,
+        160
+      ],
+      "id": "4f8eba96-9b08-4008-883a-c86351b267c3",
+      "name": "Upload Website Attachment to Drive"
+    },
+    {
+      "parameters": {
+        "jsCode": "const drive = $json;\nconst original = $('Extract Website Attachments').item.json;\n\nconst driveFileId = drive.id || drive.fileId || null;\n\nconst driveViewLink =\n  drive.webViewLink ||\n  drive.webContentLink ||\n  (driveFileId\n    ? `https://drive.google.com/file/d/${driveFileId}/view`\n    : null);\n\nfunction sizeToBytes(value) {\n  if (value === null || value === undefined || value === '') return null;\n\n  if (typeof value === 'number') {\n    return Math.round(value);\n  }\n\n  const text = String(value).trim().toLowerCase();\n\n  if (/^\\d+$/.test(text)) {\n    return Number(text);\n  }\n\n  const match = text.match(/^([\\d.]+)\\s*(b|kb|kib|mb|mib|gb|gib)?$/i);\n\n  if (!match) return null;\n\n  const amount = parseFloat(match[1]);\n  const unit = (match[2] || 'b').toLowerCase();\n\n  const multipliers = {\n    b: 1,\n    kb: 1000,\n    kib: 1024,\n    mb: 1000 * 1000,\n    mib: 1024 * 1024,\n    gb: 1000 * 1000 * 1000,\n    gib: 1024 * 1024 * 1024\n  };\n\n  return Math.round(amount * (multipliers[unit] || 1));\n}\n\nreturn [\n  {\n    json: {\n      communication_id: original.communication_id,\n      customer_id: original.customer_id,\n      ticket_id: original.ticket_id,\n\n      communication_channel: original.communication_channel,\n      source: original.source,\n\n      external_id: original.external_id,\n      file_type: original.mime_type,\n      file_name: original.file_name,\n      mime_type: original.mime_type,\n      size_bytes: sizeToBytes(original.size_bytes),\n\n      file_url: driveViewLink,\n      storage_bucket: 'google_drive',\n      storage_path: driveFileId\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1904,
+        160
+      ],
+      "id": "21e7a579-0d73-4e0b-9221-a4536e71478e",
+      "name": "Prepare Website Attachment Record"
+    },
+    {
+      "parameters": {
+        "tableId": "attachments",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "communication_id",
+              "fieldValue": "={{ $json.communication_id }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "ticket_id",
+              "fieldValue": "={{ $json.ticket_id }}"
+            },
+            {
+              "fieldId": "communication_channel",
+              "fieldValue": "={{ $json.communication_channel }}"
+            },
+            {
+              "fieldId": "external_id",
+              "fieldValue": "={{ $json.external_id }}"
+            },
+            {
+              "fieldId": "file_type",
+              "fieldValue": "={{ $json.file_type }}"
+            },
+            {
+              "fieldId": "file_name",
+              "fieldValue": "={{ $json.file_name }}"
+            },
+            {
+              "fieldId": "file_url",
+              "fieldValue": "={{ $json.file_url }}"
+            },
+            {
+              "fieldId": "mime_type",
+              "fieldValue": "={{ $json.mime_type }}"
+            },
+            {
+              "fieldId": "size_bytes",
+              "fieldValue": "={{ $json.size_bytes }}"
+            },
+            {
+              "fieldId": "storage_bucket",
+              "fieldValue": "={{ $json.storage_bucket }}"
+            },
+            {
+              "fieldId": "storage_path",
+              "fieldValue": "={{ $json.storage_path }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2048,
+        160
+      ],
+      "id": "a67c232e-d45d-49b2-a611-d5a6e8bc5211",
+      "name": "Create Website Attachment"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ticket = $('Create Website Ticket').item.json;\n\nreturn [\n  {\n    json: {\n      success: true,\n      message: 'Your support request has been received.',\n      ticket_number: ticket.ticket_number,\n      ticket_id: ticket.id\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        -16
+      ],
+      "id": "77c8a675-1982-455a-81a2-df3fcf3db1b6",
+      "name": "Prepare Ticket Response"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Website Ticket Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Website Ticket Request": {
+      "main": [
+        [
+          {
+            "node": "Find Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Customer": {
+      "main": [
+        [
+          {
+            "node": "IF Customer Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Customer Exists?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Website Ticket Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Customer": {
+      "main": [
+        [
+          {
+            "node": "Prepare Website Ticket Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Website Ticket Data": {
+      "main": [
+        [
+          {
+            "node": "Create Website Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Website Ticket": {
+      "main": [
+        [
+          {
+            "node": "Create Website Communication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Website Communication": {
+      "main": [
+        [
+          {
+            "node": "Extract Website Attachments",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Ticket Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Website Attachments": {
+      "main": [
+        [
+          {
+            "node": "Upload Website Attachment to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Website Attachment to Drive": {
+      "main": [
+        [
+          {
+            "node": "Prepare Website Attachment Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Website Attachment Record": {
+      "main": [
+        [
+          {
+            "node": "Create Website Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Ticket Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Ticket Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

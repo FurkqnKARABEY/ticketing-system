@@ -1,0 +1,1043 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -16,
+        224
+      ],
+      "id": "14b0a4ed-7e15-437e-80f9-e307e18e2de6",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "communications",
+        "limit": 20,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "channel",
+              "condition": "eq",
+              "keyValue": "openphone_call"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        192,
+        224
+      ],
+      "id": "07a2e363-37c9-42dc-82da-71df1edbf265",
+      "name": "Find Calls Needing Enrichment"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.filter(item => {\n  const j = item.json;\n\n  const hasCallId = !!j.openphone_call_id;\n  const isTestCall = String(j.openphone_call_id || '').startsWith('test-call-');\n\n  const missingRecording = !j.recording_url;\n  const missingTranscript = !j.transcript_text && !j.transcript_url;\n  const missingSummary = !j.summary;\n\n  return hasCallId && !isTestCall && (missingRecording || missingTranscript || missingSummary);\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        224
+      ],
+      "id": "abb7a457-4720-4c16-a3d0-5b3fafdc4d18",
+      "name": "Filter Calls Needing Enrichment"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const response = item.json || {};\n  const original = $('Filter Calls Needing Enrichment').item.json;\n\n  const recordingUrl =\n    response.url ||\n    response.recordingUrl ||\n    response.recording_url ||\n    response.data?.url ||\n    response.data?.recordingUrl ||\n    response.data?.recording_url ||\n    response.data?.object?.url ||\n    response.data?.object?.recordingUrl ||\n    response.data?.object?.recording_url ||\n    null;\n\n  return {\n    json: {\n      communication_id: original.id,\n      openphone_call_id: original.openphone_call_id,\n      existing_recording_url: original.recording_url,\n      recording_url_found: recordingUrl,\n      recording_raw_response: response\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        224
+      ],
+      "id": "6ecb0c4c-0ddb-406f-9b67-2d7d75067aa6",
+      "name": "Extract Recording Info"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4b05f5b9-99b6-47a7-8c97-799088abf8ed",
+              "leftValue": "={{ !!$json.recording_url_found }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1024,
+        144
+      ],
+      "id": "a90d82ca-41eb-4508-8a60-a3354edbc8cf",
+      "name": "IF Recording Found?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "communications",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.communication_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "recording_url",
+              "fieldValue": "={{ $json.file_url }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        128
+      ],
+      "id": "7029bee2-0422-42d7-947b-1719e072c02d",
+      "name": "Update Communication Recording"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.openphone.com/v1/call-recordings/{{ $json.openphone_call_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "YOUR_OPENPHONE_API_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        624,
+        224
+      ],
+      "id": "040b8217-503c-4b57-9efb-0160fac5471d",
+      "name": "Get Call Recording",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.openphone.com/v1/call-transcripts/{{ $json.openphone_call_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "YOUR_OPENPHONE_API_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1024,
+        480
+      ],
+      "id": "d2e3629b-dbcc-476e-b44b-7b439f21310f",
+      "name": "Get Call Transcript",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const response = item.json || {};\n\n  const original =\n    $('Extract Recording Info').item.json ||\n    $('Filter Calls Needing Enrichment').item.json;\n\n  let transcriptText =\n    response.text ||\n    response.transcript ||\n    response.transcriptText ||\n    response.data?.text ||\n    response.data?.transcript ||\n    response.data?.transcriptText ||\n    response.data?.object?.text ||\n    response.data?.object?.transcript ||\n    response.data?.object?.transcriptText ||\n    null;\n\n  const segments =\n    response.segments ||\n    response.data?.segments ||\n    response.data?.object?.segments ||\n    response.transcript?.segments ||\n    response.data?.transcript?.segments ||\n    [];\n\n  if (!transcriptText && Array.isArray(segments) && segments.length) {\n    transcriptText = segments\n      .map(s => {\n        const speaker = s.speaker || s.role || s.author || '';\n        const text = s.text || s.content || s.message || '';\n        return speaker ? `${speaker}: ${text}` : text;\n      })\n      .filter(Boolean)\n      .join('\\n');\n  }\n\n  return {\n    json: {\n      ...original,\n      transcript_text_found: transcriptText,\n      transcript_raw_response: response\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        480
+      ],
+      "id": "5737fa8a-7ca4-4313-b954-c958953aacdc",
+      "name": "Extract Transcript Info"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d9c97fd7-bec5-49c7-917b-66af5056955c",
+              "leftValue": "={{ !!$json.transcript_text_found }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1456,
+        480
+      ],
+      "id": "1e9b7ed4-ea5f-4040-b5ce-5dd7bbb0bfaf",
+      "name": "Extract Transcript Info1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "communications",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.communication_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "transcript_text",
+              "fieldValue": "={{ $json.transcript_text_found }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1664,
+        464
+      ],
+      "id": "21922479-4feb-4597-aebc-14fd3eceb47d",
+      "name": "Update Communication Transcript"
+    },
+    {
+      "parameters": {
+        "content": "Perraro Ticketing - OpenPhone Call Enrichment",
+        "height": 176,
+        "width": 2768,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        -208
+      ],
+      "id": "445367e5-4750-4f44-bfee-a734b08dd9dc",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.openphone.com/v1/call-summaries/{{ $json.openphone_call_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "YOUR_OPENPHONE_API_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1024,
+        -16
+      ],
+      "id": "9ad16325-3ffe-4f93-bd6d-e3283cbd7303",
+      "name": "Get Call Summary",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const response = item.json || {};\n  const original = $('Extract Recording Info').item.json;\n\n  const summary =\n    response.summary ||\n    response.text ||\n    response.data?.summary ||\n    response.data?.text ||\n    response.data?.object?.summary ||\n    response.data?.object?.text ||\n    null;\n\n  return {\n    json: {\n      communication_id: original.communication_id,\n      openphone_call_id: original.openphone_call_id,\n      summary_found: summary,\n      summary_raw_response: response\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        -16
+      ],
+      "id": "0f1fe451-aa24-48be-b56e-f2e1015bbfed",
+      "name": "Extract Summary Info"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2bf320d5-a571-4103-961e-50317bca404b",
+              "leftValue": "={{ !!$json.summary_found }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1440,
+        -16
+      ],
+      "id": "79cf7276-dc77-4f60-8d9e-8496ad008bcc",
+      "name": "IF Summary Found?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "communications",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.communication_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $json.summary_found }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1664,
+        -32
+      ],
+      "id": "99090421-24b0-464f-8c8e-26787312ba82",
+      "name": "Update Communication Summary"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.recording_url_found }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "YOUR_OPENPHONE_API_KEY"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1232,
+        128
+      ],
+      "id": "4442df64-6b8a-493f-8530-cfd42fb2c98e",
+      "name": "Download Recording",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "name": "={{ 'call-recording-' + $('Extract Recording Info').item.json.openphone_call_id + '.mp3' }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_DRIVE_FOLDER_ID_CALL_RECORDINGS",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1440,
+        128
+      ],
+      "id": "0225c249-f062-4dee-b412-5cac63807004",
+      "name": "Upload Recording to Drive"
+    },
+    {
+      "parameters": {
+        "jsCode": "const drive = $json;\nconst original = $('Extract Recording Info').item.json;\n\nconst driveFileId = drive.id || drive.fileId || null;\n\nconst driveViewLink =\n  drive.webViewLink ||\n  drive.webContentLink ||\n  (driveFileId ? `https://drive.google.com/file/d/${driveFileId}/view` : original.recording_url_found);\n\nreturn [\n  {\n    json: {\n      communication_id: original.communication_id,\n      customer_id: original.customer_id || null,\n      ticket_id: original.ticket_id || null,\n\n      communication_channel: 'openphone_call',\n      source: 'openphone',\n\n      external_id: original.openphone_call_id,\n      file_type: 'audio/mpeg',\n      file_name: `call-recording-${original.openphone_call_id}.mp3`,\n      mime_type: 'audio/mpeg',\n\n      file_url: driveViewLink,\n      storage_bucket: 'google_drive',\n      storage_path: driveFileId,\n\n      original_file_url: original.recording_url_found\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        128
+      ],
+      "id": "dfc0e40e-972c-4cf8-b09d-1f87c6777b04",
+      "name": "Prepare Recording Attachment"
+    },
+    {
+      "parameters": {
+        "tableId": "attachments",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "communication_id",
+              "fieldValue": "={{ $json.communication_id }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "ticket_id",
+              "fieldValue": "={{ $json.ticket_id }}"
+            },
+            {
+              "fieldId": "communication_channel",
+              "fieldValue": "={{ $json.communication_channel }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "={{ $json.source }}"
+            },
+            {
+              "fieldId": "external_id",
+              "fieldValue": "={{ $json.external_id }}"
+            },
+            {
+              "fieldId": "file_type",
+              "fieldValue": "={{ $json.file_type }}"
+            },
+            {
+              "fieldId": "file_name",
+              "fieldValue": "={{ $json.file_name }}"
+            },
+            {
+              "fieldId": "file_url",
+              "fieldValue": "={{ $json.file_url }}"
+            },
+            {
+              "fieldId": "mime_type",
+              "fieldValue": "={{ $json.mime_type }}"
+            },
+            {
+              "fieldId": "storage_bucket",
+              "fieldValue": "={{ $json.storage_bucket }}"
+            },
+            {
+              "fieldId": "storage_path",
+              "fieldValue": "={{ $json.storage_path }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1872,
+        128
+      ],
+      "id": "2ffff62b-6435-430d-ac6b-7f531ca3f762",
+      "name": "Create Recording Attachment"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.openphone.com/v1/call-voicemails/{{ $json.openphone_call_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "YOUR_OPENPHONE_API_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1024,
+        336
+      ],
+      "id": "4c108bf6-35a3-4632-97c1-23f93ead917f",
+      "name": "Get Call Voicemail",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const response = item.json || {};\n  const original = $('Extract Recording Info').item.json;\n\n  const data = response.data || response;\n\n  const voicemailId = data.id || null;\n  const voicemailStatus = data.status || null;\n  const voicemailTranscript = data.transcript || null;\n  const voicemailRecordingUrl =\n    data.recordingUrl ||\n    data.recording_url ||\n    data.url ||\n    null;\n\n  const voicemailDuration = data.duration || null;\n\n  return {\n    json: {\n      communication_id: original.communication_id,\n      customer_id: original.customer_id || null,\n      ticket_id: original.ticket_id || null,\n      openphone_call_id: original.openphone_call_id,\n\n      voicemail_id: voicemailId,\n      voicemail_status: voicemailStatus,\n      voicemail_transcript: voicemailTranscript,\n      voicemail_recording_url: voicemailRecordingUrl,\n      voicemail_duration: voicemailDuration,\n\n      voicemail_raw_response: response\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        336
+      ],
+      "id": "e1283994-5cb9-483f-94ee-1d0af7a3b41f",
+      "name": "Extract Voicemail Info"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "88b09b08-2550-44dd-a72e-2c700b769d0f",
+              "leftValue": "={{ !!$json.voicemail_recording_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1456,
+        336
+      ],
+      "id": "1c2081c8-62b0-43ec-81c9-1ce6e36649ad",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.voicemail_recording_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "YOUR_OPENPHONE_API_KEY"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1664,
+        320
+      ],
+      "id": "aff63012-0bf1-4d8a-a002-082ea41ac3fe",
+      "name": "Download Voicemail",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "name": "={{ 'voicemail-' + $('Extract Voicemail Info').item.json.openphone_call_id + '.mp3' }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_DRIVE_FOLDER_ID_CALL_RECORDINGS",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1872,
+        320
+      ],
+      "id": "26eea927-d8d1-4d5c-bbe4-823781d29ff5",
+      "name": "Upload Voicemail to Drive"
+    },
+    {
+      "parameters": {
+        "jsCode": "const drive = $json;\nconst original = $('Extract Voicemail Info').item.json;\n\nconst driveFileId = drive.id || drive.fileId || null;\n\nconst driveViewLink =\n  drive.webViewLink ||\n  drive.webContentLink ||\n  (driveFileId ? `https://drive.google.com/file/d/${driveFileId}/view` : original.voicemail_recording_url);\n\nreturn [\n  {\n    json: {\n      communication_id: original.communication_id,\n      customer_id: original.customer_id || null,\n      ticket_id: original.ticket_id || null,\n\n      communication_channel: 'openphone_call',\n      source: 'openphone',\n\n      external_id: original.voicemail_id || original.openphone_call_id,\n      file_type: 'audio/mpeg',\n      file_name: `voicemail-${original.openphone_call_id}.mp3`,\n      mime_type: 'audio/mpeg',\n      size_bytes: null,\n\n      file_url: driveViewLink,\n      storage_bucket: 'google_drive',\n      storage_path: driveFileId,\n\n      voicemail_transcript: original.voicemail_transcript,\n      voicemail_status: original.voicemail_status,\n      voicemail_duration: original.voicemail_duration,\n      original_file_url: original.voicemail_recording_url\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        320
+      ],
+      "id": "a001bfec-0bcc-45a9-9c4c-bcdbc1b6641c",
+      "name": "Prepare Voicemail Attachment"
+    },
+    {
+      "parameters": {
+        "tableId": "attachments",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "communication_id",
+              "fieldValue": "={{ $json.communication_id }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "ticket_id",
+              "fieldValue": "={{ $json.ticket_id }}"
+            },
+            {
+              "fieldId": "communication_channel",
+              "fieldValue": "={{ $json.communication_channel }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "={{ $json.source }}"
+            },
+            {
+              "fieldId": "external_id",
+              "fieldValue": "={{ $json.external_id }}"
+            },
+            {
+              "fieldId": "file_type",
+              "fieldValue": "={{ $json.file_type }}"
+            },
+            {
+              "fieldId": "file_name",
+              "fieldValue": "={{ $json.file_name }}"
+            },
+            {
+              "fieldId": "file_url",
+              "fieldValue": "={{ $json.file_url }}"
+            },
+            {
+              "fieldId": "mime_type",
+              "fieldValue": "={{ $json.mime_type }}"
+            },
+            {
+              "fieldId": "size_bytes",
+              "fieldValue": "={{ $json.size_bytes }}"
+            },
+            {
+              "fieldId": "storage_bucket",
+              "fieldValue": "={{ $json.storage_bucket }}"
+            },
+            {
+              "fieldId": "storage_path",
+              "fieldValue": "={{ $json.storage_path }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2288,
+        320
+      ],
+      "id": "96298ab4-f2de-49c8-81c6-9325b815fafc",
+      "name": "Create Voicemail Attachment"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "communications",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.communication_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "call_type",
+              "fieldValue": "voicemail"
+            },
+            {
+              "fieldId": "recording_url",
+              "fieldValue": "={{ $json.file_url }}"
+            },
+            {
+              "fieldId": "transcript_text",
+              "fieldValue": "={{ $json.voicemail_transcript }}"
+            },
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $json.voicemail_transcript }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2496,
+        320
+      ],
+      "id": "c540c139-a705-41a0-beef-5d5a768f4feb",
+      "name": "Update Communication Voicemail"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Find Calls Needing Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Calls Needing Enrichment": {
+      "main": [
+        [
+          {
+            "node": "Filter Calls Needing Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Calls Needing Enrichment": {
+      "main": [
+        [
+          {
+            "node": "Get Call Recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Recording Info": {
+      "main": [
+        [
+          {
+            "node": "IF Recording Found?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Call Transcript",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Call Summary",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Call Voicemail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Recording Found?": {
+      "main": [
+        [
+          {
+            "node": "Download Recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Call Recording": {
+      "main": [
+        [
+          {
+            "node": "Extract Recording Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Call Transcript": {
+      "main": [
+        [
+          {
+            "node": "Extract Transcript Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Transcript Info": {
+      "main": [
+        [
+          {
+            "node": "Extract Transcript Info1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Transcript Info1": {
+      "main": [
+        [
+          {
+            "node": "Update Communication Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Call Summary": {
+      "main": [
+        [
+          {
+            "node": "Extract Summary Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Summary Info": {
+      "main": [
+        [
+          {
+            "node": "IF Summary Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Summary Found?": {
+      "main": [
+        [
+          {
+            "node": "Update Communication Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Recording": {
+      "main": [
+        [
+          {
+            "node": "Upload Recording to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Recording to Drive": {
+      "main": [
+        [
+          {
+            "node": "Prepare Recording Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Recording Attachment": {
+      "main": [
+        [
+          {
+            "node": "Create Recording Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Recording Attachment": {
+      "main": [
+        [
+          {
+            "node": "Update Communication Recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Call Voicemail": {
+      "main": [
+        [
+          {
+            "node": "Extract Voicemail Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Voicemail Info": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Download Voicemail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Voicemail": {
+      "main": [
+        [
+          {
+            "node": "Upload Voicemail to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Voicemail to Drive": {
+      "main": [
+        [
+          {
+            "node": "Prepare Voicemail Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Voicemail Attachment": {
+      "main": [
+        [
+          {
+            "node": "Create Voicemail Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Voicemail Attachment": {
+      "main": [
+        [
+          {
+            "node": "Update Communication Voicemail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

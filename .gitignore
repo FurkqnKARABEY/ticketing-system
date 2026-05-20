@@ -1,0 +1,40 @@
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Credentials / secrets
+credentials/
+secrets/
+*.pem
+*.key
+*.crt
+
+# n8n backups or credentials
+*n8n-backup*
+*credentials.json*
+
+# Database dumps with sensitive data
+*.dump
+*.backup

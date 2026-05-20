@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Furkan Karabey Logo" width="180">
+  <img src="frontend/assets/logo.png" alt="Furkan Karabey Logo" width="220">
 </p>
 
 # Perraro Ticketing System

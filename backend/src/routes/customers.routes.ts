@@ -4,7 +4,47 @@ import { isValidUuid } from "../utils/validation";
 
 const router = Router();
 
+router.get("/", async (_req, res) => {
+  try {
+    const { data: customers, error } = await supabase
+      .from("customers")
+      .select(`
+        id,
+        first_name,
+        last_name,
+        full_name,
+        email_primary,
+        email_secondary,
+        phone_primary,
+        phone_secondary,
+        phone_primary_normalized,
+        phone_secondary_normalized,
+        source,
+        created_at,
+        updated_at
+      `)
+      .order("created_at", { ascending: false });
 
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch customers",
+        error: error.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      count: customers?.length || 0,
+      data: customers || [],
+    });
+  } catch {
+    return res.status(500).json({
+      success: false,
+      message: "Unexpected server error",
+    });
+  }
+});
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;

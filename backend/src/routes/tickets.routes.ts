@@ -1,5 +1,11 @@
 import { Router } from "express";
 import { supabase } from "../config/supabase";
+import { isValidUuid } from "../utils/validation";
+import {
+  allowedCategories,
+  allowedPriorities,
+  allowedStatuses,
+} from "../constants/ticket.constants";
 
 const router = Router();
 
@@ -90,12 +96,7 @@ router.get("/", async (_req, res) => {
     });
   }
 });
-const isValidUuid = (value: string) => {
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  return uuidRegex.test(value);
-};
 
 router.get("/:id", async (req, res) => {
   try {
@@ -254,7 +255,7 @@ router.get("/:id", async (req, res) => {
     });
   }
 });
-const allowedStatuses = ["new", "open", "pending", "closed"];
+
 
 router.patch("/:id/status", async (req, res) => {
   try {
@@ -340,7 +341,7 @@ router.patch("/:id/status", async (req, res) => {
   }
 });
 
-const allowedPriorities = ["low", "normal", "high", "urgent"];
+
 
 router.patch("/:id/priority", async (req, res) => {
   try {
@@ -412,16 +413,7 @@ router.patch("/:id/priority", async (req, res) => {
   }
 });
 
-const allowedCategories = [
-  "general",
-  "general_support",
-  "shipping_delivery",
-  "damaged_item",
-  "parts_request",
-  "warranty",
-  "return_refund",
-  "complaint",
-];
+
 
 router.patch("/:id", async (req, res) => {
   try {

@@ -12,6 +12,7 @@ import authRouter from "./routes/auth.routes";
 import usersRouter from "./routes/users.routes";
 
 import { requireAuth, requireAdmin } from "./middleware/auth.middleware";
+import actionsRouter from "./routes/actions.routes";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +39,7 @@ app.use("/api/communications", requireAuth, communicationsRouter);
 app.use("/api/attachments", requireAuth, attachmentsRouter);
 app.use("/api/search", requireAuth, searchRouter);
 app.use("/api/dashboard", requireAuth, dashboardRouter);
+app.use("/api/actions", requireAuth, actionsRouter);
 
 // Admin-only routes
 // Bu API'lere sadece role = admin olan kullanıcılar erişebilir.

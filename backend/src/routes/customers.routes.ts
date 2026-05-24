@@ -1,14 +1,22 @@
 import { Router } from "express";
 import { supabase } from "../config/supabase";
 import { isValidUuid } from "../utils/validation";
+import { getPaginationParams, getTotalPages } from "../utils/pagination";
 
 const router = Router();
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const { data: customers, error } = await supabase
+    const { page, limit, from, to } = getPaginationParams(req.query);
+
+    const {
+      data: customers,
+      error,
+      count,
+    } = await supabase
       .from("customers")
-      .select(`
+      .select(
+        `
         id,
         first_name,
         last_name,
@@ -22,8 +30,11 @@ router.get("/", async (_req, res) => {
         source,
         created_at,
         updated_at
-      `)
-      .order("created_at", { ascending: false });
+      `,
+        { count: "exact" }
+      )
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (error) {
       return res.status(500).json({
@@ -33,9 +44,17 @@ router.get("/", async (_req, res) => {
       });
     }
 
+    const total = count || 0;
+
     return res.json({
       success: true,
       count: customers?.length || 0,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: getTotalPages(total, limit),
+      },
       data: customers || [],
     });
   } catch {
@@ -45,6 +64,7 @@ router.get("/", async (_req, res) => {
     });
   }
 });
+
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;

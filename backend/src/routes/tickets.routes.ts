@@ -6,14 +6,22 @@ import {
   allowedPriorities,
   allowedStatuses,
 } from "../constants/ticket.constants";
+import { getPaginationParams, getTotalPages } from "../utils/pagination";
 
 const router = Router();
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const { data: tickets, error: ticketsError } = await supabase
+    const { page, limit, from, to } = getPaginationParams(req.query);
+
+    const {
+      data: tickets,
+      error: ticketsError,
+      count,
+    } = await supabase
       .from("tickets")
-      .select(`
+      .select(
+        `
         id,
         ticket_number,
         title,
@@ -23,11 +31,17 @@ router.get("/", async (_req, res) => {
         priority,
         source,
         customer_id,
+        order_id,
+        assigned_agent_id,
+        last_activity_at,
         created_at,
         updated_at,
         closed_at
-      `)
-      .order("created_at", { ascending: false });
+      `,
+        { count: "exact" }
+      )
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (ticketsError) {
       return res.status(500).json({
@@ -37,57 +51,18 @@ router.get("/", async (_req, res) => {
       });
     }
 
-    const customerIds = [
-      ...new Set(
-        (tickets || [])
-          .map((ticket) => ticket.customer_id)
-          .filter(Boolean)
-      ),
-    ];
-
-    let customersById: Record<string, unknown> = {};
-
-    if (customerIds.length > 0) {
-      const { data: customers, error: customersError } = await supabase
-        .from("customers")
-        .select(`
-          id,
-          first_name,
-          last_name,
-          full_name,
-          email_primary,
-          phone_primary,
-          phone_primary_normalized
-        `)
-        .in("id", customerIds);
-
-      if (customersError) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to fetch customers",
-          error: customersError.message,
-        });
-      }
-
-      customersById = (customers || []).reduce((acc, customer) => {
-        acc[customer.id] = customer;
-        return acc;
-      }, {} as Record<string, unknown>);
-    }
-
-    const ticketsWithCustomers = (tickets || []).map((ticket) => {
-      return {
-        ...ticket,
-        customer: ticket.customer_id
-          ? customersById[ticket.customer_id] || null
-          : null,
-      };
-    });
+    const total = count || 0;
 
     return res.json({
       success: true,
-      count: ticketsWithCustomers.length,
-      data: ticketsWithCustomers,
+      count: tickets?.length || 0,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: getTotalPages(total, limit),
+      },
+      data: tickets || [],
     });
   } catch {
     return res.status(500).json({

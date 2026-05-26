@@ -17,6 +17,7 @@ import { TicketDetailPage } from "./pages/TicketDetailPage";
 import { EmailRecordsPage } from "./pages/EmailRecordsPage";
 import { OpenPhoneRecordsPage } from "./pages/OpenPhoneRecordsPage";
 import { RecordDetailPage } from "./pages/RecordDetailPage";
+import { CustomerDetailPage } from "./pages/CustomerDetailPage";
 
 function App() {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -81,6 +82,7 @@ function App() {
         <Route path="/tickets" element={<TicketsPage />} />
         <Route path="/tickets/:id" element={<TicketDetailPage />} />
         <Route path="/customers" element={<CustomersPage />} />
+        <Route path="/customers/:id" element={<CustomerDetailPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/attachments" element={<AttachmentsPage />} />
         <Route path="/openphone-records" element={<OpenPhoneRecordsPage />} />

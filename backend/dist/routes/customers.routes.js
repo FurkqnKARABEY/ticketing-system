@@ -8,7 +8,10 @@ const router = (0, express_1.Router)();
 router.get("/", async (req, res) => {
     try {
         const { page, limit, from, to } = (0, pagination_1.getPaginationParams)(req.query);
-        const { data: customers, error, count, } = await supabase_1.supabase
+        const search = typeof req.query.search === "string"
+            ? req.query.search.replace(/[,%()]/g, " ").trim()
+            : "";
+        let query = supabase_1.supabase
             .from("customers")
             .select(`
         id,
@@ -27,6 +30,19 @@ router.get("/", async (req, res) => {
       `, { count: "exact" })
             .order("created_at", { ascending: false })
             .range(from, to);
+        if (search) {
+            query = query.or([
+                `full_name.ilike.%${search}%`,
+                `email_primary.ilike.%${search}%`,
+                `email_secondary.ilike.%${search}%`,
+                `phone_primary.ilike.%${search}%`,
+                `phone_secondary.ilike.%${search}%`,
+                `phone_primary_normalized.ilike.%${search}%`,
+                `phone_secondary_normalized.ilike.%${search}%`,
+                `source.ilike.%${search}%`,
+            ].join(","));
+        }
+        const { data: customers, error, count } = await query;
         if (error) {
             return res.status(500).json({
                 success: false,

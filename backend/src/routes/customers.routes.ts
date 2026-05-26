@@ -8,12 +8,12 @@ const router = Router();
 router.get("/", async (req, res) => {
   try {
     const { page, limit, from, to } = getPaginationParams(req.query);
+    const search =
+      typeof req.query.search === "string"
+        ? req.query.search.replace(/[,%()]/g, " ").trim()
+        : "";
 
-    const {
-      data: customers,
-      error,
-      count,
-    } = await supabase
+    let query = supabase
       .from("customers")
       .select(
         `
@@ -35,6 +35,23 @@ router.get("/", async (req, res) => {
       )
       .order("created_at", { ascending: false })
       .range(from, to);
+
+    if (search) {
+      query = query.or(
+        [
+          `full_name.ilike.%${search}%`,
+          `email_primary.ilike.%${search}%`,
+          `email_secondary.ilike.%${search}%`,
+          `phone_primary.ilike.%${search}%`,
+          `phone_secondary.ilike.%${search}%`,
+          `phone_primary_normalized.ilike.%${search}%`,
+          `phone_secondary_normalized.ilike.%${search}%`,
+          `source.ilike.%${search}%`,
+        ].join(",")
+      );
+    }
+
+    const { data: customers, error, count } = await query;
 
     if (error) {
       return res.status(500).json({

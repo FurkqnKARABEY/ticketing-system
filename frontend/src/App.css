@@ -74,6 +74,19 @@ button:disabled {
   box-shadow: 0 12px 30px rgba(243, 107, 16, 0.32);
 }
 
+.sidebar-logo {
+  display: block;
+  background: transparent;
+  box-shadow: none;
+  object-fit: cover;
+}
+
+.muted-cell {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #64748b;
+}
+
 .login-brand h1 {
   margin: 0;
   font-size: 26px;

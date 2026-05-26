@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import type { AppUser } from "../types/auth";
+import sidebarLogo from "../assets/supportdesk-logo.jpg";
 
 type AppLayoutProps = {
   user: AppUser;
@@ -11,7 +12,7 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
     <main className="app-shell">
       <aside className="sidebar">
           <div className="sidebar-brand">
-            <div className="sidebar-logo">S</div>
+            <img className="sidebar-logo" src={sidebarLogo} alt="Support Desk" />
             <div>
             <strong>Support Desk</strong>
             <span>Workspace</span>

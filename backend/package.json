@@ -1,7 +1,7 @@
 {
-  "name": "perraro-ticketing-backend",
+  "name": "support-desk-backend",
   "version": "1.0.0",
-  "description": "Backend API for Perraro Support Desk",
+  "description": "Backend API for Support Desk",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx src/server.ts",

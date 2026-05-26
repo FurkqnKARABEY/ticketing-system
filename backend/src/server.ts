@@ -15,6 +15,7 @@ import usersRouter from "./routes/users.routes";
 import actionsRouter from "./routes/actions.routes";
 
 import { requireAuth, requireAdmin } from "./middleware/auth.middleware";
+import recordsRouter from "./routes/records.routes";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -51,12 +52,12 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: "25mb" }));
 
 app.get("/", (_req, res) => {
   res.json({
     success: true,
-    message: "Perraro Ticketing API is running",
+    message: "Support Desk API is running",
   });
 });
 
@@ -64,6 +65,7 @@ app.get("/", (_req, res) => {
 app.use("/api/auth", authRouter);
 
 // Protected application routes
+app.use("/api/records", requireAuth, recordsRouter);
 app.use("/api/tickets", requireAuth, ticketsRouter);
 app.use("/api/customers", requireAuth, customersRouter);
 app.use("/api/communications", requireAuth, communicationsRouter);
@@ -76,5 +78,5 @@ app.use("/api/actions", requireAuth, actionsRouter);
 app.use("/api/users", requireAuth, requireAdmin, usersRouter);
 
 app.listen(PORT, () => {
-  console.log(`Perraro Ticketing API is running on port ${PORT}`);
+  console.log(`Support Desk API is running on port ${PORT}`);
 });

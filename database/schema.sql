@@ -1,9 +1,9 @@
 -- =========================================================
--- Perraro Ticketing System
+-- Support Desk
 -- Database Schema Snapshot
 -- =========================================================
 -- This file documents the current public tables used by the
--- Perraro Ticketing System.
+-- Support Desk.
 --
 -- Note:
 -- This schema was reconstructed from column metadata.

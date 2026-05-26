@@ -186,7 +186,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const response = item.json || {};\n\n  const original =\n    $('Extract Recording Info').item.json ||\n    $('Filter Calls Needing Enrichment').item.json;\n\n  let transcriptText =\n    response.text ||\n    response.transcript ||\n    response.transcriptText ||\n    response.data?.text ||\n    response.data?.transcript ||\n    response.data?.transcriptText ||\n    response.data?.object?.text ||\n    response.data?.object?.transcript ||\n    response.data?.object?.transcriptText ||\n    null;\n\n  const segments =\n    response.segments ||\n    response.data?.segments ||\n    response.data?.object?.segments ||\n    response.transcript?.segments ||\n    response.data?.transcript?.segments ||\n    [];\n\n  if (!transcriptText && Array.isArray(segments) && segments.length) {\n    transcriptText = segments\n      .map(s => {\n        const speaker = s.speaker || s.role || s.author || '';\n        const text = s.text || s.content || s.message || '';\n        return speaker ? `${speaker}: ${text}` : text;\n      })\n      .filter(Boolean)\n      .join('\\n');\n  }\n\n  return {\n    json: {\n      ...original,\n      transcript_text_found: transcriptText,\n      transcript_raw_response: response\n    }\n  };\n});"
+        "jsCode": "const items = $input.all();\n\nconst getTranscriptSegments = (response) => {\n  return (\n    response.segments ||\n    response.dialogue ||\n    response.dialog ||\n    response.data?.segments ||\n    response.data?.dialogue ||\n    response.data?.dialog ||\n    response.data?.object?.segments ||\n    response.data?.object?.dialogue ||\n    response.data?.object?.dialog ||\n    response.transcript?.segments ||\n    response.transcript?.dialogue ||\n    response.data?.transcript?.segments ||\n    response.data?.transcript?.dialogue ||\n    []\n  );\n};\n\nconst getSegmentText = (segment) => {\n  const speaker =\n    segment.speaker ||\n    segment.role ||\n    segment.author ||\n    segment.identifier ||\n    segment.userId ||\n    '';\n\n  const text =\n    segment.text ||\n    segment.content ||\n    segment.message ||\n    segment.transcript ||\n    '';\n\n  return text ? (speaker ? `${speaker}: ${text}` : text) : '';\n};\n\nreturn items.map(item => {\n  const response = item.json || {};\n\n  const original =\n    $('Extract Recording Info').item.json ||\n    $('Filter Calls Needing Enrichment').item.json;\n\n  let transcriptText =\n    response.text ||\n    response.transcript ||\n    response.transcriptText ||\n    response.data?.text ||\n    response.data?.transcript ||\n    response.data?.transcriptText ||\n    response.data?.object?.text ||\n    response.data?.object?.transcript ||\n    response.data?.object?.transcriptText ||\n    null;\n\n  const segments = getTranscriptSegments(response);\n\n  if (!transcriptText && Array.isArray(segments) && segments.length) {\n    transcriptText = segments\n      .map(getSegmentText)\n      .filter(Boolean)\n      .join('\\n');\n  }\n\n  return {\n    json: {\n      ...original,\n      transcript_text_found: transcriptText,\n      transcript_raw_response: response\n    }\n  };\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -264,7 +264,7 @@
     },
     {
       "parameters": {
-        "content": "Perraro Ticketing - OpenPhone Call Enrichment",
+        "content": "Support Desk - OpenPhone Call Enrichment",
         "height": 176,
         "width": 2768,
         "color": 5

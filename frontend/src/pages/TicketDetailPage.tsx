@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { sendEmail, sendSms } from "../api/actions";
+import type { OutboundAttachment } from "../api/actions";
+import { EmailComposer, SmsComposer } from "../components/MessageComposers";
 import { getTicketById } from "../api/tickets";
 import type {
   Attachment,
@@ -10,7 +12,7 @@ import type {
 } from "../types/ticket";
 
 const formatDate = (value: string | null) => {
-  if (!value) return "—";
+  if (!value) return "-";
 
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -32,7 +34,7 @@ const getDisplayName = (
   if (communication.author_name) return communication.author_name;
 
   if (communication.author_type === "agent") {
-    return "Perraro Team";
+    return "Support Team";
   }
 
   if (customer?.full_name) {
@@ -72,7 +74,7 @@ const ChatAttachment = ({ attachment }: ChatAttachmentProps) => {
     >
       <strong>{attachment.file_name || "Attachment"}</strong>
       <span>{attachment.mime_type || attachment.file_type || "File"}</span>
-      <small>Open in Google Drive</small>
+      <small>{attachment.file_url ? "Open file" : "Stored with message"}</small>
     </a>
   );
 };
@@ -102,7 +104,7 @@ const MessageBubble = ({
 
         <div className="message-tags">
           <span className={`message-tag ${isOutgoing ? "outgoing" : "incoming"}`}>
-            {communication.direction}
+            {communication.direction || "unknown"}
           </span>
           <span className="message-tag neutral">{communication.channel}</span>
         </div>
@@ -140,153 +142,6 @@ const MessageBubble = ({
           </div>
         )}
       </article>
-    </div>
-  );
-};
-
-type SmsComposerProps = {
-  to: string | null | undefined;
-  onSend: (message: string) => Promise<void>;
-};
-
-const SmsComposer = ({ to, onSend }: SmsComposerProps) => {
-  const [message, setMessage] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSend = async () => {
-    const cleanMessage = message.trim();
-
-    if (!cleanMessage) {
-      setError("Message is required.");
-      return;
-    }
-
-    if (!to) {
-      setError("Customer phone number is missing.");
-      return;
-    }
-
-    setIsSending(true);
-    setError("");
-
-    try {
-      await onSend(cleanMessage);
-      setMessage("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send SMS");
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  return (
-    <div className="chat-composer">
-      <div className="composer-input-wrap">
-        <button className="composer-icon-button" type="button" disabled>
-          +
-        </button>
-
-        <textarea
-          value={message}
-          placeholder={to ? "Type SMS message..." : "No phone number available"}
-          disabled={isSending || !to}
-          onChange={(event) => setMessage(event.target.value)}
-          rows={1}
-        />
-
-        <button
-          className="composer-send-button"
-          type="button"
-          disabled={isSending || !to}
-          onClick={handleSend}
-        >
-          {isSending ? "..." : "➤"}
-        </button>
-      </div>
-
-      {error && <p className="composer-error">{error}</p>}
-    </div>
-  );
-};
-
-type EmailComposerProps = {
-  to: string | null | undefined;
-  defaultSubject: string;
-  onSend: (subject: string, message: string) => Promise<void>;
-};
-
-const EmailComposer = ({
-  to,
-  defaultSubject,
-  onSend,
-}: EmailComposerProps) => {
-  const [subject, setSubject] = useState(defaultSubject);
-  const [message, setMessage] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSend = async () => {
-    const cleanSubject = subject.trim();
-    const cleanMessage = message.trim();
-
-    if (!to) {
-      setError("Customer email address is missing.");
-      return;
-    }
-
-    if (!cleanSubject) {
-      setError("Subject is required.");
-      return;
-    }
-
-    if (!cleanMessage) {
-      setError("Email message is required.");
-      return;
-    }
-
-    setIsSending(true);
-    setError("");
-
-    try {
-      await onSend(cleanSubject, cleanMessage);
-      setMessage("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send email");
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  return (
-    <div className="chat-composer email-composer">
-      <input
-        value={subject}
-        placeholder="Email subject"
-        disabled={isSending || !to}
-        onChange={(event) => setSubject(event.target.value)}
-      />
-
-      <div className="composer-input-wrap">
-        <textarea
-          value={message}
-          placeholder={to ? "Type email reply..." : "No email address available"}
-          disabled={isSending || !to}
-          onChange={(event) => setMessage(event.target.value)}
-          rows={2}
-        />
-
-        <button
-          className="composer-send-button"
-          type="button"
-          disabled={isSending || !to}
-          onClick={handleSend}
-        >
-          {isSending ? "..." : "➤"}
-        </button>
-      </div>
-
-      {error && <p className="composer-error">{error}</p>}
     </div>
   );
 };
@@ -354,7 +209,10 @@ export const TicketDetailPage = () => {
 
   const customerEmailAddress = customer?.email_primary || customer?.email_secondary;
 
-  const handleSendSms = async (message: string) => {
+  const handleSendSms = async (
+    message: string,
+    composerAttachments: OutboundAttachment[]
+  ) => {
     if (!ticket || !customer) {
       throw new Error("Ticket or customer is missing.");
     }
@@ -368,12 +226,17 @@ export const TicketDetailPage = () => {
       customer_id: customer.id,
       to: customerPhoneNumber,
       message,
+      attachments: composerAttachments,
     });
 
     await loadTicket();
   };
 
-  const handleSendEmail = async (subject: string, message: string) => {
+  const handleSendEmail = async (
+    subject: string,
+    message: string,
+    composerAttachments: OutboundAttachment[]
+  ) => {
     if (!ticket || !customer) {
       throw new Error("Ticket or customer is missing.");
     }
@@ -388,6 +251,7 @@ export const TicketDetailPage = () => {
       to: customerEmailAddress,
       subject,
       message,
+      attachments: composerAttachments,
     });
 
     await loadTicket();
@@ -413,7 +277,7 @@ export const TicketDetailPage = () => {
     <section className="ticket-detail-page">
       <div className="page-header">
         <Link to="/tickets" className="text-link">
-          ← Back to Tickets
+          Back to Tickets
         </Link>
 
         <h1>{ticket.title}</h1>
@@ -432,17 +296,17 @@ export const TicketDetailPage = () => {
 
             <div>
               <span>Email</span>
-              <strong>{customerEmailAddress || "—"}</strong>
+              <strong>{customerEmailAddress || "-"}</strong>
             </div>
 
             <div>
               <span>Phone</span>
-              <strong>{customerPhoneNumber || "—"}</strong>
+              <strong>{customerPhoneNumber || "-"}</strong>
             </div>
 
             <div>
               <span>Source</span>
-              <strong>{customer?.source || "—"}</strong>
+              <strong>{customer?.source || "-"}</strong>
             </div>
           </div>
         </div>
@@ -463,12 +327,12 @@ export const TicketDetailPage = () => {
 
             <div>
               <span>Category</span>
-              <strong>{ticket.category || "—"}</strong>
+              <strong>{ticket.category || "-"}</strong>
             </div>
 
             <div>
               <span>Source</span>
-              <strong>{ticket.source || "—"}</strong>
+              <strong>{ticket.source || "-"}</strong>
             </div>
 
             <div>

@@ -14,6 +14,9 @@ import { UsersPage } from "./pages/UsersPage";
 import type { AppUser } from "./types/auth";
 import "./App.css";
 import { TicketDetailPage } from "./pages/TicketDetailPage";
+import { EmailRecordsPage } from "./pages/EmailRecordsPage";
+import { OpenPhoneRecordsPage } from "./pages/OpenPhoneRecordsPage";
+import { RecordDetailPage } from "./pages/RecordDetailPage";
 
 function App() {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -56,7 +59,7 @@ function App() {
   };
 
   if (isLoading) {
-    return <div className="loading-screen">Loading Perraro Support Desk...</div>;
+    return <div className="loading-screen">Loading Support Desk...</div>;
   }
 
   if (!user) {
@@ -80,6 +83,16 @@ function App() {
         <Route path="/customers" element={<CustomersPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/attachments" element={<AttachmentsPage />} />
+        <Route path="/openphone-records" element={<OpenPhoneRecordsPage />} />
+        <Route
+          path="/openphone-records/:id"
+          element={<RecordDetailPage mode="openphone" />}
+        />
+        <Route path="/email-records" element={<EmailRecordsPage />} />
+        <Route
+          path="/email-records/:id"
+          element={<RecordDetailPage mode="email" />}
+        />
         {user.role === "admin" && (
           <Route path="/users" element={<UsersPage />} />
         )}

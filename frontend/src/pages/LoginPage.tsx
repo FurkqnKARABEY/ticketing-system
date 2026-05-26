@@ -7,7 +7,7 @@ type LoginPageProps = {
 };
 
 export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
-  const [email, setEmail] = useState("admin@perraroelectricbike.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,9 +31,9 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     <main className="login-page">
       <section className="login-card">
         <div className="login-brand">
-          <div className="login-logo">P</div>
+          <div className="login-logo">S</div>
           <div>
-            <h1>Perraro Support Desk</h1>
+            <h1>Support Desk</h1>
             <p>Secure team access for customer support operations.</p>
           </div>
         </div>

@@ -1,15 +1,15 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
 export const getAuthToken = () => {
-  return localStorage.getItem("perraro_support_token");
+  return localStorage.getItem("support_desk_token");
 };
 
 export const setAuthToken = (token: string) => {
-  localStorage.setItem("perraro_support_token", token);
+  localStorage.setItem("support_desk_token", token);
 };
 
 export const clearAuthToken = () => {
-  localStorage.removeItem("perraro_support_token");
+  localStorage.removeItem("support_desk_token");
 };
 
 type ApiRequestOptions = {

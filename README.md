@@ -2,11 +2,11 @@
   <img src="frontend/assets/logo.png" alt="Furkan Karabey Logo" width="220">
 </p>
 
-# Perraro Ticketing System
+# Support Desk
 
-An omnichannel customer support and ticketing system built for Perraro Electric Bike.
+An omnichannel customer support and ticketing system.
 
-This project collects customer communications from multiple channels, stores them in Supabase, and creates support tickets when needed. It is designed to later power an internal admin panel where support agents can review customer history, manage tickets, and send outbound SMS or email replies.
+This project collects customer communications from multiple channels, stores them in Supabase, and creates support tickets when needed.
 
 ---
 
@@ -49,7 +49,7 @@ This project collects customer communications from multiple channels, stores the
 - Uploads email attachments to Google Drive
 
 ### 5. Website Ticket Intake
-- Receives ticket submissions from the Perraro website
+- Receives ticket submissions from a website form
 - Supports multipart form submissions with file attachments
 - Finds or creates customers by email and phone
 - Creates support tickets and first communication records
@@ -61,7 +61,7 @@ This project collects customer communications from multiple channels, stores the
 ## Project Structure
 
 ```txt
-perraro-ticketing-system/
+support-desk/
 │
 ├── README.md
 ├── .gitignore

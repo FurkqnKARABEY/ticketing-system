@@ -1,697 +1,154 @@
-<!-- Perraro Electric Bike - Customer Support Ticket Form -->
-<!-- Paste this entire block into a Shopify Custom Liquid section or a custom page template. -->
+<!-- Support Desk - Customer Support Ticket Form -->
+<!--
+  Notes:
+  - This is a template snippet intended to be adapted to your storefront.
+  - Update the form action / webhook endpoint as needed.
+-->
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-<section class="perraro-ticket-shell" aria-labelledby="perraro-ticket-title">
-  <div class="perraro-ticket-wrap">
-    <div class="perraro-ticket-card">
-      <div class="perraro-ticket-brand">
-        <a class="perraro-ticket-logo-link" href="https://www.perraroelectricbike.com/" aria-label="Perraro Electric Bike home">
-          <img
-            class="perraro-ticket-logo"
-            src="https://cdn.shopify.com/s/files/1/0659/3757/2058/files/Perraro_logo.png?v=1710000603"
-            alt="Perraro Electric Bike"
-            loading="lazy"
-            onerror="this.style.display='none'; this.closest('.perraro-ticket-brand').querySelector('.perraro-ticket-wordmark').style.display='inline-flex';"
-          >
-          <span class="perraro-ticket-wordmark" style="display:none;">
-            <span class="perraro-ticket-wordmark-orange">Perraro Electric Bike</span>
-          </span>
-        </a>
+<section class="support-ticket-shell" aria-labelledby="support-ticket-title">
+  <div class="support-ticket-wrap">
+    <div class="support-ticket-card">
+      <div class="support-ticket-brand">
+        <div class="support-ticket-wordmark">
+          <span class="support-ticket-wordmark-strong">Support Desk</span>
+        </div>
       </div>
 
-      <div class="perraro-ticket-header">
-        <p class="perraro-ticket-kicker">Customer Support</p>
-        <h1 id="perraro-ticket-title">
-          <span class="perraro-title-orange">Perraro Electric Bike</span>
-          <span class="perraro-title-black"> Support Request</span>
+      <div class="support-ticket-header">
+        <p class="support-ticket-kicker">Customer Support</p>
+        <h1 id="support-ticket-title">
+          <span class="support-title-strong">Support Desk</span>
+          <span class="support-title-soft"> Support Request</span>
         </h1>
-        <p class="perraro-ticket-intro">
-          Submit your request below and our support team will review it. Add photos, videos, or documents when they help explain the issue.
+        <p class="support-ticket-intro">
+          Submit your request and our team will follow up as soon as possible.
         </p>
       </div>
 
-      <form id="perraro-ticket-form" class="perraro-ticket-form" enctype="multipart/form-data" novalidate>
-        <div class="perraro-grid two">
-          <div class="perraro-field">
-            <label for="perraro-first-name">First Name <span aria-hidden="true">*</span></label>
-            <input id="perraro-first-name" name="first_name" type="text" autocomplete="given-name" required>
+      <form id="support-ticket-form" class="support-ticket-form" enctype="multipart/form-data" novalidate>
+        <div class="support-grid two">
+          <div class="support-field">
+            <label for="support-first-name">First Name <span aria-hidden="true">*</span></label>
+            <input id="support-first-name" name="first_name" type="text" autocomplete="given-name" required>
           </div>
 
-          <div class="perraro-field">
-            <label for="perraro-last-name">Last Name <span aria-hidden="true">*</span></label>
-            <input id="perraro-last-name" name="last_name" type="text" autocomplete="family-name" required>
-          </div>
-        </div>
-
-        <div class="perraro-grid two">
-          <div class="perraro-field">
-            <label for="perraro-email">Email Address <span aria-hidden="true">*</span></label>
-            <input id="perraro-email" name="email" type="email" autocomplete="email" required>
-          </div>
-
-          <div class="perraro-field">
-            <label for="perraro-phone">Phone Number</label>
-            <input
-              id="perraro-phone"
-              name="phone"
-              type="tel"
-              autocomplete="tel"
-              placeholder="(555) 555-5555"
-              maxlength="14"
-              inputmode="numeric"
-            >
+          <div class="support-field">
+            <label for="support-last-name">Last Name <span aria-hidden="true">*</span></label>
+            <input id="support-last-name" name="last_name" type="text" autocomplete="family-name" required>
           </div>
         </div>
 
-        <div class="perraro-grid two">
-          <div class="perraro-field">
-            <label for="perraro-order-number">Order Number</label>
-            <input id="perraro-order-number" name="order_number" type="text" placeholder="Example: 62171">
+        <div class="support-grid two">
+          <div class="support-field">
+            <label for="support-email">Email <span aria-hidden="true">*</span></label>
+            <input id="support-email" name="email" type="email" autocomplete="email" required>
           </div>
 
-          <div class="perraro-field">
-            <label for="perraro-product-model">Product Model</label>
-            <select id="perraro-product-model" name="product_model">
-              <option value="">Select a model</option>
-              <option value="Smart eTrike">Smart eTrike</option>
-              <option value="Siesta Semi-Recumbent Electric Trike">Siesta Semi-Recumbent Electric Trike</option>
-              <option value="Ridex Passenger Trike">Ridex Passenger Trike</option>
-              <option value="Kangaroo Cargo E-Trike">Kangaroo Cargo E-Trike</option>
-              <option value="FlexTrike">FlexTrike</option>
-              <option value="Polar 750W Electric Trike">Polar 750W Electric Trike</option>
-              <option value="Perraro E-Bike">Perraro E-Bike</option>
-              <option value="Other">Other</option>
-            </select>
+          <div class="support-field">
+            <label for="support-phone">Phone</label>
+            <input id="support-phone" name="phone" type="tel" autocomplete="tel">
           </div>
         </div>
 
-        <div class="perraro-grid two">
-          <div class="perraro-field">
-            <label for="perraro-category">Request Type <span aria-hidden="true">*</span></label>
-            <select id="perraro-category" name="category" required>
-              <option value="">Select a request type</option>
-              <option value="technical_support">Technical Support</option>
-              <option value="damaged_item">Damaged Item</option>
-              <option value="warranty">Warranty</option>
-              <option value="parts_request">Parts Request</option>
-              <option value="shipping_delivery">Shipping / Delivery</option>
-              <option value="return_refund">Return / Refund</option>
-              <option value="order_question">Order Question</option>
-              <option value="general_support">General Support</option>
-            </select>
+        <div class="support-grid two">
+          <div class="support-field">
+            <label for="support-order-number">Order Number</label>
+            <input id="support-order-number" name="order_number" type="text" autocomplete="off">
           </div>
 
-          <div class="perraro-field">
-            <label for="perraro-subject">Subject <span aria-hidden="true">*</span></label>
-            <input id="perraro-subject" name="subject" type="text" maxlength="180" required placeholder="Briefly describe the issue">
+          <div class="support-field">
+            <label for="support-product-model">Product Model</label>
+            <input id="support-product-model" name="product_model" type="text" autocomplete="off">
           </div>
         </div>
 
-        <div class="perraro-field">
-          <label for="perraro-message">Message <span aria-hidden="true">*</span></label>
-          <textarea id="perraro-message" name="message" rows="7" required placeholder="Please explain what happened, what product is affected, and what help you need."></textarea>
-          <p class="perraro-helper">Clear details help us assist you faster.</p>
+        <div class="support-field">
+          <label for="support-subject">Subject <span aria-hidden="true">*</span></label>
+          <input id="support-subject" name="subject" type="text" required>
         </div>
 
-        <div class="perraro-field perraro-upload-field">
-          <label for="perraro-attachments">Upload Photos, Videos, or Documents</label>
-          <div class="perraro-upload-box">
-            <input id="perraro-attachments" name="attachments" type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
-            <p><strong>Choose files</strong> or drag them here.</p>
-            <span>Supported: images, videos, PDFs, and common document files.</span>
-          </div>
-          <div id="perraro-file-list" class="perraro-file-list" aria-live="polite"></div>
+        <div class="support-field">
+          <label for="support-message">Message <span aria-hidden="true">*</span></label>
+          <textarea id="support-message" name="message" rows="5" required></textarea>
         </div>
 
-        <div class="perraro-consent-row">
-          <label class="perraro-checkbox-label">
-            <input id="perraro-consent" type="checkbox" required>
-            <span>I confirm the information above is accurate to the best of my knowledge. <span aria-hidden="true">*</span></span>
-          </label>
+        <div class="support-field">
+          <label for="support-attachments">Attachments</label>
+          <input id="support-attachments" name="attachments" type="file" multiple>
+          <div id="support-file-list" class="support-file-list" aria-live="polite"></div>
         </div>
 
-        <div class="perraro-form-actions">
-          <button id="perraro-submit-button" type="submit">
-            <span class="perraro-button-label">Submit Support Request</span>
-            <span class="perraro-button-loading" hidden>Submitting...</span>
-          </button>
-        </div>
+        <button id="support-submit-button" type="submit" class="support-submit">
+          <span class="support-button-label">Submit</span>
+          <span class="support-button-loading" style="display:none;">Submitting...</span>
+        </button>
 
-        <div id="perraro-form-status" class="perraro-status" role="status" aria-live="polite"></div>
+        <div id="support-form-status" class="support-status" role="status" aria-live="polite"></div>
       </form>
     </div>
   </div>
 </section>
 
 <style>
-  .perraro-ticket-shell {
-    --perraro-orange: #f36b10;
-    --perraro-orange-dark: #d95a05;
-    --perraro-black: #101010;
-    --perraro-border: #dfdfdf;
-    --perraro-muted: #626262;
-    --perraro-bg: #ffffff;
-    --perraro-soft: #fafafa;
-    --perraro-success-bg: #edf9f0;
-    --perraro-success-border: #bfe5c9;
-    --perraro-error-bg: #fff0f0;
-    --perraro-error-border: #f0b7b7;
-    background: var(--perraro-bg);
-    color: var(--perraro-black);
-    padding: clamp(28px, 5vw, 72px) 18px;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 700;
-  }
-
-  .perraro-ticket-wrap {
-    max-width: 1040px;
-    margin: 0 auto;
-  }
-
-  .perraro-ticket-card {
-    background: #fff;
-    border: 1px solid var(--perraro-border);
-    border-radius: 24px;
-    padding: clamp(22px, 4vw, 42px);
-    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.08);
-  }
-
-  .perraro-ticket-brand {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 24px;
-  }
-
-  .perraro-ticket-logo-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-  }
-
-  .perraro-ticket-logo {
-    display: block;
-    width: min(240px, 62vw);
-    max-height: 92px;
-    object-fit: contain;
-  }
-
-  .perraro-ticket-wordmark {
-    align-items: center;
-    justify-content: center;
-    font-size: clamp(26px, 4vw, 40px);
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    font-family: 'Poppins', sans-serif;
-  }
-
-  .perraro-ticket-wordmark-orange,
-  .perraro-title-orange {
-    color: var(--perraro-orange);
-  }
-
-  .perraro-ticket-header {
-    max-width: 780px;
-    margin: 0 auto 34px;
-    text-align: center;
-  }
-
-  .perraro-ticket-kicker {
-    margin: 0 0 10px;
-    color: var(--perraro-orange);
-    font-size: 14px;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    font-family: 'Poppins', sans-serif;
-  }
-
-  .perraro-ticket-header h1 {
-    margin: 0;
-    color: var(--perraro-black);
-    font-size: clamp(32px, 5vw, 54px);
-    line-height: 1.08;
-    letter-spacing: -0.045em;
-    font-weight: 800;
-    font-family: 'Poppins', sans-serif;
-  }
-
-  .perraro-title-black {
-    color: var(--perraro-black);
-  }
-
-  .perraro-ticket-intro {
-    margin: 18px auto 0;
-    max-width: 690px;
-    color: var(--perraro-muted);
-    font-size: 16px;
-    line-height: 1.65;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 400;
-  }
-
-  .perraro-ticket-form {
-    display: grid;
-    gap: 22px;
-  }
-
-  .perraro-grid {
-    display: grid;
-    gap: 18px;
-  }
-
-  .perraro-grid.two {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .perraro-field {
-    display: grid;
-    gap: 9px;
-  }
-
-  .perraro-field label,
-  .perraro-checkbox-label {
-    color: var(--perraro-black);
-    font-size: 14px;
-    font-weight: 700;
-    font-family: 'Poppins', sans-serif;
-  }
-
-  .perraro-field label span,
-  .perraro-checkbox-label span span {
-    color: var(--perraro-orange);
-  }
-
-  .perraro-field input,
-  .perraro-field select,
-  .perraro-field textarea {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 500;
-    width: 100%;
-    border: 1px solid #cfcfcf;
-    border-radius: 14px;
-    background: #fff;
-    color: var(--perraro-black);
-    font-size: 15px;
-    padding: 14px 15px;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    box-sizing: border-box;
-  }
-
-  .perraro-field textarea {
-    resize: vertical;
-    min-height: 170px;
-  }
-
-  .perraro-field input:focus,
-  .perraro-field select:focus,
-  .perraro-field textarea:focus {
-    outline: none;
-    border-color: var(--perraro-orange);
-    box-shadow: 0 0 0 4px rgba(243, 107, 16, 0.14);
-  }
-
-  .perraro-helper {
-    margin: 0;
-    color: var(--perraro-muted);
-    font-size: 13px;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 400;
-  }
-
-  .perraro-upload-box {
-    position: relative;
-    display: grid;
-    gap: 6px;
-    align-items: center;
-    justify-items: center;
-    min-height: 150px;
-    border: 2px dashed #d9d9d9;
-    border-radius: 18px;
-    background: var(--perraro-soft);
-    padding: 22px;
-    text-align: center;
-    transition: border-color 0.2s ease, background 0.2s ease;
-  }
-
-  .perraro-upload-box.dragover {
-    border-color: var(--perraro-orange);
-    background: #fff7f1;
-  }
-
-  .perraro-upload-box input[type="file"] {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-    border: 0;
-    padding: 0;
-  }
-
-  .perraro-upload-box p {
-    margin: 0;
-    color: var(--perraro-black);
-    font-size: 16px;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 600;
-  }
-
-  .perraro-upload-box span {
-    color: var(--perraro-muted);
-    font-size: 13px;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 400;
-  }
-
-  .perraro-file-list {
-    display: grid;
-    gap: 10px;
-  }
-
-  .perraro-file-chip {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    border: 1px solid var(--perraro-border);
-    border-radius: 14px;
-    background: #fff;
-    padding: 12px 14px;
-    font-size: 14px;
-    font-family: 'Poppins', sans-serif;
-  }
-
-  .perraro-file-chip strong {
-    display: block;
-    color: var(--perraro-black);
-    font-weight: 700;
-    overflow-wrap: anywhere;
-  }
-
-  .perraro-file-chip span {
-    color: var(--perraro-muted);
-    white-space: nowrap;
-  }
-
-  .perraro-consent-row {
-    padding-top: 2px;
-  }
-
-  .perraro-checkbox-label {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    line-height: 1.5;
-    cursor: pointer;
-    font-family: 'Poppins', sans-serif;
-  }
-
-  .perraro-checkbox-label input {
-    width: 18px;
-    height: 18px;
-    margin-top: 2px;
-    accent-color: var(--perraro-orange);
-  }
-
-  .perraro-form-actions {
-    display: flex;
-    justify-content: center;
-    padding-top: 6px;
-  }
-
-  #perraro-submit-button {
-    min-width: min(100%, 340px);
-    border: 0;
-    border-radius: 999px;
-    background: var(--perraro-orange);
-    color: #fff;
-    cursor: pointer;
-    font-family: 'Poppins', sans-serif;
-    font-size: 16px;
-    font-weight: 800;
-    letter-spacing: 0.01em;
-    padding: 17px 28px;
-    transition: transform 0.2s ease, background 0.2s ease, opacity 0.2s ease;
-  }
-
-  #perraro-submit-button:hover {
-    background: var(--perraro-orange-dark);
-    transform: translateY(-1px);
-  }
-
-  #perraro-submit-button:disabled {
-    cursor: wait;
-    opacity: 0.72;
-    transform: none;
-  }
-
-  .perraro-status {
-    display: none;
-    border-radius: 16px;
-    padding: 16px 18px;
-    font-size: 15px;
-    line-height: 1.6;
-    font-family: 'Poppins', sans-serif;
-  }
-
-  .perraro-status.show {
-    display: block;
-  }
-
-  .perraro-status.success {
-    border: 1px solid var(--perraro-success-border);
-    background: var(--perraro-success-bg);
-    color: #155724;
-  }
-
-  .perraro-status.error {
-    border: 1px solid var(--perraro-error-border);
-    background: var(--perraro-error-bg);
-    color: #8b1d1d;
-  }
-
-  .perraro-status strong {
-    font-weight: 800;
-  }
-
-  @media (max-width: 760px) {
-    .perraro-grid.two {
-      grid-template-columns: 1fr;
-    }
-
-    .perraro-ticket-card {
-      border-radius: 20px;
-    }
-
-    .perraro-ticket-intro {
-      font-size: 15px;
-    }
-
-    .perraro-file-chip {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-  }
+  .support-ticket-shell { padding: 24px; }
+  .support-ticket-wrap { display: grid; place-items: center; }
+  .support-ticket-card { width: min(100%, 720px); background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; padding: 22px; }
+  .support-ticket-kicker { margin: 0; color: #64748b; font-weight: 700; }
+  .support-ticket-intro { margin: 10px 0 0; color: #475569; }
+  .support-grid.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .support-field { display: grid; gap: 6px; margin-top: 12px; }
+  .support-field label { font-weight: 800; font-size: 13px; color: #334155; }
+  .support-field input, .support-field textarea { border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px; font: inherit; }
+  .support-submit { margin-top: 16px; border: 0; border-radius: 12px; padding: 12px 14px; font-weight: 900; background: #0f172a; color: #fff; width: 100%; }
+  .support-file-list { display: grid; gap: 8px; margin-top: 8px; }
+  .support-status { margin-top: 12px; font-weight: 800; }
+  @media (max-width: 640px) { .support-grid.two { grid-template-columns: 1fr; } }
 </style>
 
 <script>
   (function () {
-    const endpoint = 'YOUR WEBHOOK URL';
-    const form = document.getElementById('perraro-ticket-form');
-    const fileInput = document.getElementById('perraro-attachments');
-    const fileList = document.getElementById('perraro-file-list');
-    const uploadBox = document.querySelector('.perraro-upload-box');
-    const statusBox = document.getElementById('perraro-form-status');
-    const submitButton = document.getElementById('perraro-submit-button');
-    const submitLabel = submitButton.querySelector('.perraro-button-label');
-    const submitLoading = submitButton.querySelector('.perraro-button-loading');
-    const phoneInput = document.getElementById('perraro-phone');
+    var form = document.getElementById('support-ticket-form');
+    var fileInput = document.getElementById('support-attachments');
+    var fileList = document.getElementById('support-file-list');
+    var statusBox = document.getElementById('support-form-status');
+    var submitButton = document.getElementById('support-submit-button');
+    var submitLabel = submitButton.querySelector('.support-button-label');
+    var submitLoading = submitButton.querySelector('.support-button-loading');
 
-    // US phone number auto-formatter: (555) 555-5555
-    phoneInput.addEventListener('input', function (e) {
-      let raw = e.target.value.replace(/\D/g, '').substring(0, 10);
-      let formatted = '';
-      if (raw.length === 0) {
-        formatted = '';
-      } else if (raw.length <= 3) {
-        formatted = '(' + raw;
-      } else if (raw.length <= 6) {
-        formatted = '(' + raw.substring(0, 3) + ') ' + raw.substring(3);
-      } else {
-        formatted = '(' + raw.substring(0, 3) + ') ' + raw.substring(3, 6) + '-' + raw.substring(6);
-      }
-      e.target.value = formatted;
-    });
-
-    phoneInput.addEventListener('keydown', function (e) {
-      // Allow backspace to work naturally
-      if (e.key === 'Backspace') {
-        let pos = e.target.selectionStart;
-        let val = e.target.value;
-        // If cursor is right after a formatting char, skip it
-        if (pos > 0 && /[\s\-\(\)]/.test(val[pos - 1])) {
-          e.preventDefault();
-          e.target.value = val.substring(0, pos - 1) + val.substring(pos);
-          e.target.setSelectionRange(pos - 1, pos - 1);
-        }
-      }
-    });
-
-    function bytesToSize(bytes) {
-      if (!bytes && bytes !== 0) return '';
-      const units = ['B', 'KB', 'MB', 'GB'];
-      let size = bytes;
-      let unitIndex = 0;
-      while (size >= 1024 && unitIndex < units.length - 1) {
-        size /= 1024;
-        unitIndex += 1;
-      }
-      return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
-    }
-
-    function showStatus(type, html) {
-      statusBox.className = `perraro-status show ${type}`;
-      statusBox.innerHTML = html;
-    }
-
-    function clearStatus() {
-      statusBox.className = 'perraro-status';
-      statusBox.innerHTML = '';
+    function setStatus(message, type) {
+      statusBox.textContent = message || '';
+      statusBox.className = 'support-status ' + (type || '');
     }
 
     function renderFiles() {
-      const files = Array.from(fileInput.files || []);
       fileList.innerHTML = '';
-      files.forEach((file) => {
-        const row = document.createElement('div');
-        row.className = 'perraro-file-chip';
-        row.innerHTML = `
-          <strong>${escapeHtml(file.name)}</strong>
-          <span>${bytesToSize(file.size)}</span>
-        `;
+      var files = fileInput.files ? Array.prototype.slice.call(fileInput.files) : [];
+      files.forEach(function (file) {
+        var row = document.createElement('div');
+        row.textContent = file.name + ' (' + Math.ceil(file.size / 1024) + ' KB)';
         fileList.appendChild(row);
       });
     }
 
-    function escapeHtml(value) {
-      return String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    function setSubmitting(isSubmitting) {
-      submitButton.disabled = isSubmitting;
-      submitLabel.hidden = isSubmitting;
-      submitLoading.hidden = !isSubmitting;
-    }
-
-    function isValidEmail(email) {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    }
-
-    function isValidUSPhone(phone) {
-      // Accept empty (optional field) or valid US format
-      if (!phone) return true;
-      return /^\(\d{3}\) \d{3}-\d{4}$/.test(phone);
-    }
-
-    function validateForm() {
-      const firstName = form.elements.first_name.value.trim();
-      const lastName = form.elements.last_name.value.trim();
-      const email = form.elements.email.value.trim();
-      const phone = form.elements.phone.value.trim();
-      const category = form.elements.category.value.trim();
-      const subject = form.elements.subject.value.trim();
-      const message = form.elements.message.value.trim();
-      const consent = document.getElementById('perraro-consent').checked;
-
-      if (!firstName || !lastName || !email || !category || !subject || !message) {
-        showStatus('error', 'Please complete all required fields before submitting.');
-        return false;
-      }
-
-      if (!isValidEmail(email)) {
-        showStatus('error', 'Please enter a valid email address.');
-        return false;
-      }
-
-      if (!isValidUSPhone(phone)) {
-        showStatus('error', 'Please enter a valid US phone number in the format (555) 555-5555.');
-        return false;
-      }
-
-      if (!consent) {
-        showStatus('error', 'Please confirm the information before submitting.');
-        return false;
-      }
-
-      return true;
-    }
-
     fileInput.addEventListener('change', renderFiles);
 
-    ['dragenter', 'dragover'].forEach((eventName) => {
-      uploadBox.addEventListener(eventName, (event) => {
-        event.preventDefault();
-        uploadBox.classList.add('dragover');
-      });
-    });
-
-    ['dragleave', 'drop'].forEach((eventName) => {
-      uploadBox.addEventListener(eventName, (event) => {
-        event.preventDefault();
-        uploadBox.classList.remove('dragover');
-      });
-    });
-
-    uploadBox.addEventListener('drop', (event) => {
-      if (event.dataTransfer && event.dataTransfer.files) {
-        fileInput.files = event.dataTransfer.files;
-        renderFiles();
-      }
-    });
-
-    form.addEventListener('submit', async (event) => {
+    form.addEventListener('submit', function (event) {
       event.preventDefault();
-      clearStatus();
+      setStatus('');
 
-      if (!validateForm()) return;
+      submitButton.disabled = true;
+      submitLabel.style.display = 'none';
+      submitLoading.style.display = 'inline';
 
-      setSubmitting(true);
-
-      try {
-        const formData = new FormData(form);
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          body: formData
-        });
-
-        const result = await response.json().catch(() => ({}));
-
-        if (!response.ok || !result.success) {
-          throw new Error(result.message || 'Your request could not be submitted. Please try again.');
-        }
-
-        const ticketNumber = result.ticket_number ? escapeHtml(result.ticket_number) : '';
-        showStatus(
-          'success',
-          `<strong>Request received.</strong><br>Thank you. Our support team will review your request.${ticketNumber ? `<br><strong>Ticket Number:</strong> ${ticketNumber}` : ''}`
-        );
-
-        form.reset();
-        fileList.innerHTML = '';
-      } catch (error) {
-        showStatus('error', escapeHtml(error.message || 'Something went wrong. Please try again.'));
-      } finally {
-        setSubmitting(false);
-      }
+      // TODO: Replace with your backend endpoint
+      // fetch('/your-webhook-endpoint', { method: 'POST', body: new FormData(form) })
+      //   .then(...)
+      window.setTimeout(function () {
+        submitButton.disabled = false;
+        submitLoading.style.display = 'none';
+        submitLabel.style.display = 'inline';
+        setStatus('Submitted (template stub).', 'success');
+      }, 500);
     });
   })();
 </script>

@@ -2,7 +2,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "Perraro Ticketing - Email Intake",
+        "content": "Support Desk - Email Intake",
         "width": 3760,
         "color": "#FF0000"
       },
@@ -59,7 +59,7 @@
         "responses": {
           "values": [
             {
-              "content": "=You are an email classification assistant for Perraro Electric Bikes customer support.\n\nAnalyze the email and return ONLY valid JSON. Do not include markdown, explanation, or extra text.\n\nDecide:\n- whether this email is related to a customer, order, product, warranty, return, shipping, service, sales, or support request\n- whether it needs a ticket/case\n- category\n- priority\n- short summary\n\nUse these categories:\ntechnical_support\nwarranty\nreturn_refund\nshipping_delivery\nparts_request\nsales_question\norder_question\ncomplaint\ngeneral_support\nnot_customer_related\n\nUse these priorities:\nlow\nnormal\nhigh\nurgent\n\nRules:\n- Marketing emails, newsletters, spam, vendor promotions, generic notifications are not customer related.\n- Customer complaints, damaged item reports, warranty issues, return/refund requests, delivery problems, technical problems, parts requests need a ticket.\n- Simple questions can be customer related but may not need a ticket unless follow-up is required.\n\nEmail:\nFrom: {{ $json.author_name }} <{{ $json.email_address }}>\nSubject: {{ $json.subject }}\nBody: {{ $json.message_body }}\n\nReturn JSON exactly like this:\n{\n  \"is_customer_related\": true,\n  \"needs_ticket\": false,\n  \"category\": \"general_support\",\n  \"priority\": \"normal\",\n  \"summary\": \"Short summary here\",\n  \"reason\": \"Short reason here\"\n}"
+              "content": "=You are an email classification assistant for a customer support desk.\n\nAnalyze the email and return ONLY valid JSON. Do not include markdown, explanation, or extra text.\n\nDecide:\n- whether this email is related to a customer, order, product, warranty, return, shipping, service, sales, or support request\n- whether it needs a ticket/case\n- category\n- priority\n- short summary\n\nUse these categories:\ntechnical_support\nwarranty\nreturn_refund\nshipping_delivery\nparts_request\nsales_question\norder_question\ncomplaint\ngeneral_support\nnot_customer_related\n\nUse these priorities:\nlow\nnormal\nhigh\nurgent\n\nRules:\n- Marketing emails, newsletters, spam, vendor promotions, generic notifications are not customer related.\n- Customer complaints, damaged item reports, warranty issues, return/refund requests, delivery problems, technical problems, parts requests need a ticket.\n- Simple questions can be customer related but may not need a ticket unless follow-up is required.\n\nEmail:\nFrom: {{ $json.author_name }} <{{ $json.email_address }}>\nSubject: {{ $json.subject }}\nBody: {{ $json.message_body }}\n\nReturn JSON exactly like this:\n{\n  \"is_customer_related\": true,\n  \"needs_ticket\": false,\n  \"category\": \"general_support\",\n  \"priority\": \"normal\",\n  \"summary\": \"Short summary here\",\n  \"reason\": \"Short reason here\"\n}"
             }
           ]
         },

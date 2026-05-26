@@ -1,8 +1,8 @@
-# Perraro Ticketing System Architecture
+# Support Desk Architecture
 
 ## Overview
 
-The Perraro Ticketing System is an omnichannel customer support platform designed to collect customer communications from multiple sources, store them in a structured database, and create support tickets when necessary.
+The Support Desk is an omnichannel customer support platform designed to collect customer communications from multiple sources, store them in a structured database, and create support tickets when necessary.
 
 The system currently uses:
 

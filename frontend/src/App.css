@@ -26,6 +26,10 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+}
+
 .loading-screen {
   min-height: 100vh;
   display: grid;
@@ -316,6 +320,23 @@ button {
   color: #f36b10;
 }
 
+.primary-action-button {
+  border: 0;
+  background: #f36b10;
+  color: #fff;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-weight: 900;
+}
+
+.primary-action-button:hover:not(:disabled) {
+  background: #dc5f0c;
+}
+
+.primary-action-button:disabled {
+  opacity: 0.65;
+}
+
 .table-card {
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -326,10 +347,27 @@ button {
 
 .table-toolbar {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 20px 22px;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.search-input {
+  width: min(100%, 360px);
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 700;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #f36b10;
+  box-shadow: 0 0 0 4px rgba(243, 107, 16, 0.12);
 }
 
 .table-toolbar strong {
@@ -968,6 +1006,99 @@ button {
   font-weight: 900;
 }
 
+.transcript-block {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.transcript-block strong {
+  color: #475569;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.transcript-message-bubble {
+  width: min(100%, 96%);
+}
+
+.transcript-chat {
+  display: grid;
+  gap: 10px;
+}
+
+.transcript-turn-row {
+  display: flex;
+  width: 100%;
+}
+
+.transcript-turn-row.customer {
+  justify-content: flex-start;
+}
+
+.transcript-turn-row.technician {
+  justify-content: flex-end;
+}
+
+.transcript-turn {
+  max-width: 72%;
+  border: 1px solid #dbeafe;
+  border-radius: 18px;
+  padding: 11px 13px;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+.transcript-turn-row.technician .transcript-turn {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+}
+
+.transcript-turn-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.transcript-turn-meta strong {
+  color: #0f172a;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.transcript-turn-meta span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.transcript-turn p {
+  margin: 0;
+  color: #1e293b;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.message-empty-note {
+  margin: 0;
+  color: #64748b;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.transcript-link {
+  display: inline-flex;
+  margin-top: 12px;
+}
+
 .message-attachments {
   display: flex;
   flex-wrap: wrap;
@@ -1110,9 +1241,97 @@ button {
   .message-bubble {
     width: 100%;
   }
+
+  .transcript-turn {
+    max-width: 92%;
+  }
+
+  .table-toolbar,
+  .record-panel-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .search-input,
+  .compact-search {
+    width: 100%;
+  }
 }
 .conversation-main-grid {
   align-items: stretch;
+}
+
+.record-conversation-grid {
+  grid-template-columns: 1fr;
+}
+
+.record-panel-header {
+  gap: 16px;
+}
+
+.record-panel-header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.compact-search {
+  width: min(100%, 320px);
+}
+
+.record-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.record-composer .composer-input-wrap {
+  border-radius: 18px;
+  background: #fff;
+}
+
+.record-composer .composer-icon-button {
+  background: transparent;
+  box-shadow: none;
+}
+
+.record-composer .composer-send-button {
+  background: #16a34a;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.composer-attachments {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 42%;
+  overflow-x: auto;
+}
+
+.composer-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 8px 10px;
+  max-width: 220px;
+  font-weight: 800;
+}
+
+.composer-attachment-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-attachment-chip small {
+  color: #64748b;
+  white-space: nowrap;
 }
 
 .conversation-panel {

@@ -1,10 +1,18 @@
 import { apiRequest } from "./client";
 
+export type OutboundAttachment = {
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  data_base64: string;
+};
+
 type SendSmsPayload = {
   ticket_id?: string;
   customer_id?: string;
   to: string;
   message: string;
+  attachments?: OutboundAttachment[];
 };
 
 type SendEmailPayload = {
@@ -13,6 +21,7 @@ type SendEmailPayload = {
   to: string;
   subject: string;
   message: string;
+  attachments?: OutboundAttachment[];
 };
 
 type ActionResponse = {

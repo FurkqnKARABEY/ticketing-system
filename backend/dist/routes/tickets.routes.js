@@ -6,10 +6,19 @@ const validation_1 = require("../utils/validation");
 const ticket_constants_1 = require("../constants/ticket.constants");
 const pagination_1 = require("../utils/pagination");
 const router = (0, express_1.Router)();
+const visibleTicketSources = [
+    "website_form",
+    "email_record",
+    "openphone_record",
+    "manual",
+];
 router.get("/", async (req, res) => {
     try {
         const { page, limit, from, to } = (0, pagination_1.getPaginationParams)(req.query);
-        const { data: tickets, error: ticketsError, count, } = await supabase_1.supabase
+        const search = typeof req.query.search === "string"
+            ? req.query.search.replace(/[,%()]/g, " ").trim()
+            : "";
+        let query = supabase_1.supabase
             .from("tickets")
             .select(`
         id,
@@ -27,9 +36,19 @@ router.get("/", async (req, res) => {
         created_at,
         updated_at,
         closed_at
-      `, { count: "exact" })
-            .order("created_at", { ascending: false })
-            .range(from, to);
+        `, { count: "exact" })
+            .in("source", visibleTicketSources);
+        if (search) {
+            query = query.or([
+                `ticket_number.ilike.%${search}%`,
+                `title.ilike.%${search}%`,
+                `description.ilike.%${search}%`,
+                `status.ilike.%${search}%`,
+                `priority.ilike.%${search}%`,
+                `source.ilike.%${search}%`,
+            ].join(","));
+        }
+        const { data: tickets, error: ticketsError, count, } = await query.order("created_at", { ascending: false }).range(from, to);
         if (ticketsError) {
             return res.status(500).json({
                 success: false,
@@ -121,7 +140,7 @@ router.get("/:id", async (req, res) => {
                 customer = customerData;
             }
         }
-        const { data: communications, error: communicationsError } = await supabase_1.supabase
+        let communicationsQuery = supabase_1.supabase
             .from("communications")
             .select(`
         id,
@@ -150,8 +169,14 @@ router.get("/:id", async (req, res) => {
         occurred_at,
         created_at
       `)
-            .eq("ticket_id", id)
             .order("created_at", { ascending: true });
+        if (ticket.customer_id) {
+            communicationsQuery = communicationsQuery.eq("customer_id", ticket.customer_id);
+        }
+        else {
+            communicationsQuery = communicationsQuery.eq("ticket_id", id);
+        }
+        const { data: communications, error: communicationsError } = await communicationsQuery;
         if (communicationsError) {
             return res.status(500).json({
                 success: false,
@@ -159,7 +184,7 @@ router.get("/:id", async (req, res) => {
                 error: communicationsError.message,
             });
         }
-        const { data: attachments, error: attachmentsError } = await supabase_1.supabase
+        let attachmentsQuery = supabase_1.supabase
             .from("attachments")
             .select(`
         id,
@@ -178,8 +203,14 @@ router.get("/:id", async (req, res) => {
         communication_channel,
         created_at
       `)
-            .eq("ticket_id", id)
             .order("created_at", { ascending: true });
+        if (ticket.customer_id) {
+            attachmentsQuery = attachmentsQuery.eq("customer_id", ticket.customer_id);
+        }
+        else {
+            attachmentsQuery = attachmentsQuery.eq("ticket_id", id);
+        }
+        const { data: attachments, error: attachmentsError } = await attachmentsQuery;
         if (attachmentsError) {
             return res.status(500).json({
                 success: false,
@@ -487,7 +518,7 @@ router.post("/:id/internal-notes", async (req, res) => {
             author_type: "agent",
             author_name: typeof author_name === "string" && author_name.trim().length > 0
                 ? author_name.trim()
-                : "Perraro Team",
+                : "Support Team",
             subject: "Internal Note",
             message_body: note.trim(),
             message_type: "internal_note",

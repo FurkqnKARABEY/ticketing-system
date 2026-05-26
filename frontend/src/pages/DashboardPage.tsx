@@ -38,7 +38,7 @@ export const DashboardPage = () => {
       <section className="page-header">
         <div>
           <h2>Dashboard</h2>
-          <p>Live overview of Perraro support operations.</p>
+          <p>Live overview of support operations.</p>
         </div>
       </section>
 

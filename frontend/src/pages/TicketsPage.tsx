@@ -29,15 +29,16 @@ export const TicketsPage = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadTickets = async (pageNumber = page) => {
+  const loadTickets = async (pageNumber = page, query = searchQuery) => {
     setIsLoading(true);
     setError("");
 
     try {
-      const response = await getTickets(pageNumber, 10);
+      const response = await getTickets(pageNumber, 10, query);
       setTickets(response.data);
       setPagination(response.pagination);
       setPage(response.pagination.page);
@@ -49,17 +50,21 @@ export const TicketsPage = () => {
   };
 
   useEffect(() => {
-    loadTickets(1);
-  }, []);
+    const timeoutId = window.setTimeout(() => {
+      loadTickets(1, searchQuery);
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   const goToPreviousPage = () => {
     if (!pagination || pagination.page <= 1) return;
-    loadTickets(pagination.page - 1);
+    loadTickets(pagination.page - 1, searchQuery);
   };
 
   const goToNextPage = () => {
     if (!pagination || pagination.page >= pagination.totalPages) return;
-    loadTickets(pagination.page + 1);
+    loadTickets(pagination.page + 1, searchQuery);
   };
 
   return (
@@ -70,7 +75,10 @@ export const TicketsPage = () => {
           <p>Review, prioritize, and manage customer support tickets.</p>
         </div>
 
-        <button className="secondary-button" onClick={() => loadTickets(page)}>
+        <button
+          className="secondary-button"
+          onClick={() => loadTickets(page, searchQuery)}
+        >
           Refresh
         </button>
       </section>
@@ -78,7 +86,7 @@ export const TicketsPage = () => {
       {error && (
         <div className="error-box dashboard-error">
           {error}
-          <button onClick={() => loadTickets(page)}>Retry</button>
+          <button onClick={() => loadTickets(page, searchQuery)}>Retry</button>
         </div>
       )}
 
@@ -92,6 +100,13 @@ export const TicketsPage = () => {
                 : "Loading tickets"}
             </span>
           </div>
+
+          <input
+            className="search-input"
+            value={searchQuery}
+            placeholder="Search tickets..."
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
         </div>
 
         {isLoading ? (

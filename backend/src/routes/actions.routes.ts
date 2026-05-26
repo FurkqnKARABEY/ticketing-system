@@ -3,7 +3,148 @@ import { supabase } from "../config/supabase";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import { isValidUuid } from "../utils/validation";
 import nodemailer from "nodemailer";
+import { randomUUID } from "crypto";
 const router = Router();
+
+type OutboundAttachmentPayload = {
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  data_base64: string;
+};
+
+type PreparedAttachment = {
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  content: Buffer;
+};
+
+type StoredAttachment = PreparedAttachment & {
+  fileUrl: string | null;
+  storageBucket: string | null;
+  storagePath: string | null;
+};
+
+const maxAttachmentBytes = 10 * 1024 * 1024;
+
+const sanitizeFileName = (value: string) => {
+  const cleanName = value.replace(/[^\w.\- ]/g, "_").trim();
+
+  return cleanName || "attachment";
+};
+
+const prepareAttachments = (value: unknown): PreparedAttachment[] => {
+  if (value === undefined || value === null) return [];
+
+  if (!Array.isArray(value)) {
+    throw new Error("Attachments must be an array");
+  }
+
+  return value.map((attachment: OutboundAttachmentPayload) => {
+    if (!attachment || typeof attachment !== "object") {
+      throw new Error("Invalid attachment payload");
+    }
+
+    if (!attachment.file_name || typeof attachment.file_name !== "string") {
+      throw new Error("Attachment file name is required");
+    }
+
+    if (!attachment.data_base64 || typeof attachment.data_base64 !== "string") {
+      throw new Error("Attachment content is required");
+    }
+
+    const content = Buffer.from(attachment.data_base64, "base64");
+
+    if (content.length === 0) {
+      throw new Error("Attachment content is empty");
+    }
+
+    if (content.length > maxAttachmentBytes) {
+      throw new Error("Attachment is too large. Maximum size is 10MB.");
+    }
+
+    return {
+      fileName: sanitizeFileName(attachment.file_name),
+      mimeType: attachment.mime_type || "application/octet-stream",
+      sizeBytes: Number(attachment.size_bytes || content.length),
+      content,
+    };
+  });
+};
+
+const uploadAttachment = async (
+  attachment: PreparedAttachment
+): Promise<StoredAttachment> => {
+  const bucket = process.env.SUPABASE_ATTACHMENTS_BUCKET || "attachments";
+  const storagePath = `outbound/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${attachment.fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(storagePath, attachment.content, {
+      contentType: attachment.mimeType,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error(`Failed to upload ${attachment.fileName}: ${uploadError.message}`);
+  }
+
+  const { data: signedUrlData } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(storagePath, 60 * 60 * 24 * 30);
+
+  return {
+    ...attachment,
+    fileUrl: signedUrlData?.signedUrl || null,
+    storageBucket: bucket,
+    storagePath,
+  };
+};
+
+const saveAttachmentRows = async ({
+  attachments,
+  communicationId,
+  ticketId,
+  customerId,
+  source,
+  communicationChannel,
+}: {
+  attachments: StoredAttachment[];
+  communicationId: string;
+  ticketId: string | null;
+  customerId: string | null;
+  source: string;
+  communicationChannel: string;
+}) => {
+  if (attachments.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("attachments")
+    .insert(
+      attachments.map((attachment) => ({
+        communication_id: communicationId,
+        ticket_id: ticketId,
+        customer_id: customerId,
+        file_type: attachment.mimeType,
+        file_name: attachment.fileName,
+        file_url: attachment.fileUrl,
+        source,
+        storage_bucket: attachment.storageBucket,
+        storage_path: attachment.storagePath,
+        mime_type: attachment.mimeType,
+        size_bytes: attachment.sizeBytes,
+        communication_channel: communicationChannel,
+      }))
+    )
+    .select();
+
+  if (error) {
+    throw new Error(`Failed to save attachments: ${error.message}`);
+  }
+
+  return data || [];
+};
 
 const normalizeUsPhone = (value: string) => {
   const digits = value.replace(/\D/g, "");
@@ -33,7 +174,8 @@ const readOpenPhoneResponse = async (response: Response) => {
 
 router.post("/send-sms", async (req: AuthenticatedRequest, res) => {
   try {
-    const { ticket_id, customer_id, to, message } = req.body;
+    const { ticket_id, customer_id, to, message, attachments } = req.body;
+    const preparedAttachments = prepareAttachments(attachments);
 
     if (!to || typeof to !== "string") {
       return res.status(400).json({
@@ -42,14 +184,17 @@ router.post("/send-sms", async (req: AuthenticatedRequest, res) => {
       });
     }
 
-    if (!message || typeof message !== "string" || message.trim().length === 0) {
+    if (
+      (!message || typeof message !== "string" || message.trim().length === 0) &&
+      preparedAttachments.length === 0
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Message is required",
+        message: "Message or attachment is required",
       });
     }
 
-    if (message.length > 1600) {
+    if (typeof message === "string" && message.length > 1600) {
       return res.status(400).json({
         success: false,
         message: "Message is too long. Maximum length is 1600 characters.",
@@ -89,6 +234,31 @@ router.post("/send-sms", async (req: AuthenticatedRequest, res) => {
       });
     }
 
+    const storedAttachments = preparedAttachments.length
+      ? await Promise.all(preparedAttachments.map(uploadAttachment))
+      : [];
+
+    const attachmentLinks = storedAttachments
+      .map((attachment) => attachment.fileUrl)
+      .filter(Boolean);
+
+    const smsContent = [
+      typeof message === "string" ? message.trim() : "",
+      attachmentLinks.length
+        ? `Attachments:\n${attachmentLinks.join("\n")}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    if (smsContent.length > 1600) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Message and attachment links are too long. Please remove files or shorten the message.",
+      });
+    }
+
     const openphoneResponse = await fetch("https://api.openphone.com/v1/messages", {
       method: "POST",
       headers: {
@@ -96,7 +266,7 @@ router.post("/send-sms", async (req: AuthenticatedRequest, res) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        content: message.trim(),
+        content: smsContent,
         from: openphonePhoneNumberId,
         to: [normalizedTo],
       }),
@@ -158,10 +328,10 @@ router.post("/send-sms", async (req: AuthenticatedRequest, res) => {
         channel: "sms",
         direction: "outgoing",
         author_type: "agent",
-        author_name: req.user?.full_name || "Perraro Team",
+        author_name: req.user?.full_name || "Support Team",
         phone_number: normalizedTo,
         phone_number_normalized: normalizedTo,
-        message_body: message.trim(),
+        message_body: smsContent,
         message_type: "sms",
         external_id: openphoneMessage?.id || null,
         openphone_message_id: openphoneMessage?.id || null,
@@ -195,6 +365,15 @@ router.post("/send-sms", async (req: AuthenticatedRequest, res) => {
       });
     }
 
+    const savedAttachments = await saveAttachmentRows({
+      attachments: storedAttachments,
+      communicationId: communication.id,
+      ticketId: ticket_id || null,
+      customerId: customer_id || null,
+      source: "openphone_sms",
+      communicationChannel: "sms",
+    });
+
     if (ticket_id) {
       await supabase
         .from("tickets")
@@ -210,6 +389,7 @@ router.post("/send-sms", async (req: AuthenticatedRequest, res) => {
       message: "SMS sent successfully",
       data: {
         communication,
+        attachments: savedAttachments,
         openphone: openphoneMessage,
       },
     });
@@ -223,7 +403,8 @@ router.post("/send-sms", async (req: AuthenticatedRequest, res) => {
 });
 router.post("/send-email", async (req: AuthenticatedRequest, res) => {
   try {
-    const { ticket_id, customer_id, to, subject, message } = req.body;
+    const { ticket_id, customer_id, to, subject, message, attachments } = req.body;
+    const preparedAttachments = prepareAttachments(attachments);
 
     if (!to || typeof to !== "string") {
       return res.status(400).json({
@@ -239,10 +420,13 @@ router.post("/send-email", async (req: AuthenticatedRequest, res) => {
       });
     }
 
-    if (!message || typeof message !== "string" || message.trim().length === 0) {
+    if (
+      (!message || typeof message !== "string" || message.trim().length === 0) &&
+      preparedAttachments.length === 0
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Email message is required",
+        message: "Email message or attachment is required",
       });
     }
 
@@ -253,7 +437,7 @@ router.post("/send-email", async (req: AuthenticatedRequest, res) => {
       });
     }
 
-    if (message.length > 10000) {
+    if (typeof message === "string" && message.length > 10000) {
       return res.status(400).json({
         success: false,
         message: "Message is too long. Maximum length is 10000 characters.",
@@ -288,7 +472,7 @@ router.post("/send-email", async (req: AuthenticatedRequest, res) => {
     const smtpSecure = process.env.SMTP_SECURE === "true";
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
-    const smtpFromName = process.env.SMTP_FROM_NAME || "Perraro Electric Bike";
+    const smtpFromName = process.env.SMTP_FROM_NAME || "Support Desk";
     const smtpFromEmail = process.env.SMTP_FROM_EMAIL || smtpUser;
 
     if (!smtpHost || !smtpUser || !smtpPass || !smtpFromEmail) {
@@ -312,8 +496,13 @@ router.post("/send-email", async (req: AuthenticatedRequest, res) => {
       from: `"${smtpFromName}" <${smtpFromEmail}>`,
       to: to.trim(),
       subject: subject.trim(),
-      text: message.trim(),
-      html: message.trim().replace(/\n/g, "<br />"),
+      text: typeof message === "string" ? message.trim() : "",
+      html: typeof message === "string" ? message.trim().replace(/\n/g, "<br />") : "",
+      attachments: preparedAttachments.map((attachment) => ({
+        filename: attachment.fileName,
+        content: attachment.content,
+        contentType: attachment.mimeType,
+      })),
     });
 
     const now = new Date().toISOString();
@@ -326,10 +515,10 @@ router.post("/send-email", async (req: AuthenticatedRequest, res) => {
         channel: "email",
         direction: "outgoing",
         author_type: "agent",
-        author_name: req.user?.full_name || "Perraro Team",
+        author_name: req.user?.full_name || "Support Team",
         email_address: to.trim(),
         subject: subject.trim(),
-        message_body: message.trim(),
+        message_body: typeof message === "string" ? message.trim() : "",
         message_type: "email",
         external_id: emailResult.messageId || null,
         email_message_id: emailResult.messageId || null,
@@ -367,6 +556,20 @@ router.post("/send-email", async (req: AuthenticatedRequest, res) => {
       });
     }
 
+    const savedAttachments = await saveAttachmentRows({
+      attachments: preparedAttachments.map((attachment) => ({
+        ...attachment,
+        fileUrl: null,
+        storageBucket: null,
+        storagePath: null,
+      })),
+      communicationId: communication.id,
+      ticketId: ticket_id || null,
+      customerId: customer_id || null,
+      source: "email",
+      communicationChannel: "email",
+    });
+
     if (ticket_id) {
       await supabase
         .from("tickets")
@@ -382,6 +585,7 @@ router.post("/send-email", async (req: AuthenticatedRequest, res) => {
       message: "Email sent successfully",
       data: {
         communication,
+        attachments: savedAttachments,
         email: {
           messageId: emailResult.messageId,
           accepted: emailResult.accepted,

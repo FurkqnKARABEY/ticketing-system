@@ -3,6 +3,7 @@ import { supabase } from "../config/supabase";
 import { isValidUuid } from "../utils/validation";
 import nodemailer from "nodemailer";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
+import { getPaginationParams, getTotalPages } from "../utils/pagination";
 
 const router = Router();
 
@@ -218,11 +219,123 @@ const sendTicketCreatedSms = async ({
 
 router.get("/email", async (_req, res) => {
   try {
-    const { data: records, error } = await supabase
+    const { page, limit, from, to } = getPaginationParams(_req.query);
+    const view = typeof _req.query.view === "string" ? _req.query.view : "records";
+    const search =
+      typeof _req.query.search === "string"
+        ? _req.query.search.replace(/[,%()]/g, " ").trim()
+        : "";
+
+    if (view === "conversations") {
+      const targetCount = page * limit;
+      const groups: Array<{
+        key: string;
+        latest: any;
+        count: number;
+      }> = [];
+      const byKey = new Map<string, { index: number; count: number }>();
+      let offset = 0;
+      const chunkSize = 250;
+      let exhausted = false;
+
+      while (groups.length < targetCount && !exhausted) {
+        const chunkTo = offset + chunkSize - 1;
+        let query = supabase
+          .from("communications")
+          .select(communicationSelect, { count: "exact" })
+          .eq("channel", "email")
+          .order("created_at", { ascending: false })
+          .range(offset, chunkTo);
+
+        if (search) {
+          query = query.or(
+            [
+              `author_name.ilike.%${search}%`,
+              `email_address.ilike.%${search}%`,
+              `subject.ilike.%${search}%`,
+              `summary.ilike.%${search}%`,
+              `message_body.ilike.%${search}%`,
+            ].join(",")
+          );
+        }
+
+        const { data: records, error } = await query;
+
+        if (error) {
+          return res.status(500).json({
+            success: false,
+            message: "Failed to fetch email records",
+            error: error.message,
+          });
+        }
+
+        if (!records || records.length === 0) {
+          exhausted = true;
+          break;
+        }
+
+        for (const record of records) {
+          const emailKey = (record.email_address || "").trim().toLowerCase();
+          const key = emailKey || record.customer_id || record.id;
+          const existing = byKey.get(key);
+
+          if (!existing) {
+            byKey.set(key, { index: groups.length, count: 1 });
+            groups.push({ key, latest: record, count: 1 });
+          } else {
+            existing.count += 1;
+            groups[existing.index].count = existing.count;
+          }
+        }
+
+        offset += records.length;
+
+        if (records.length < chunkSize) {
+          exhausted = true;
+        }
+      }
+
+      const start = (page - 1) * limit;
+      const slice = groups.slice(start, start + limit);
+      const data = slice.map((group) => ({
+        ...group.latest,
+        thread_key: group.key,
+        thread_count: group.count,
+      }));
+
+      return res.json({
+        success: true,
+        count: data.length,
+        pagination: {
+          page,
+          limit,
+          total: exhausted ? groups.length : Math.max(groups.length, targetCount + 1),
+          totalPages: exhausted ? getTotalPages(groups.length, limit) : page + 1,
+        },
+        data,
+      });
+    }
+
+    let query = supabase
       .from("communications")
-      .select(communicationSelect)
-      .eq("channel", "email")
-      .order("created_at", { ascending: false });
+      .select(communicationSelect, { count: "exact" })
+      .eq("channel", "email");
+
+    if (search) {
+      query = query.or(
+        [
+          `author_name.ilike.%${search}%`,
+          `email_address.ilike.%${search}%`,
+          `subject.ilike.%${search}%`,
+          `summary.ilike.%${search}%`,
+          `message_body.ilike.%${search}%`,
+        ].join(",")
+      );
+    }
+
+    const { data: records, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (error) {
       return res.status(500).json({
@@ -235,6 +348,12 @@ router.get("/email", async (_req, res) => {
     return res.json({
       success: true,
       count: records?.length || 0,
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages: getTotalPages(count || 0, limit),
+      },
       data: records || [],
     });
   } catch {
@@ -247,11 +366,133 @@ router.get("/email", async (_req, res) => {
 
 router.get("/openphone", async (_req, res) => {
   try {
-    const { data: records, error } = await supabase
+    const { page, limit, from, to } = getPaginationParams(_req.query);
+    const view = typeof _req.query.view === "string" ? _req.query.view : "records";
+    const search =
+      typeof _req.query.search === "string"
+        ? _req.query.search.replace(/[,%()]/g, " ").trim()
+        : "";
+
+    if (view === "conversations") {
+      const targetCount = page * limit;
+      const groups: Array<{
+        key: string;
+        latest: any;
+        count: number;
+      }> = [];
+      const byKey = new Map<string, { index: number; count: number }>();
+      let offset = 0;
+      const chunkSize = 250;
+      let exhausted = false;
+
+      while (groups.length < targetCount && !exhausted) {
+        const chunkTo = offset + chunkSize - 1;
+
+        let query = supabase
+          .from("communications")
+          .select(communicationSelect, { count: "exact" })
+          .in("channel", openPhoneChannels)
+          .order("created_at", { ascending: false })
+          .range(offset, chunkTo);
+
+        if (search) {
+          query = query.or(
+            [
+              `author_name.ilike.%${search}%`,
+              `phone_number.ilike.%${search}%`,
+              `phone_number_normalized.ilike.%${search}%`,
+              `summary.ilike.%${search}%`,
+              `message_body.ilike.%${search}%`,
+              `call_type.ilike.%${search}%`,
+              `transcript_text.ilike.%${search}%`,
+              `channel.ilike.%${search}%`,
+              `direction.ilike.%${search}%`,
+            ].join(",")
+          );
+        }
+
+        const { data: records, error } = await query;
+
+        if (error) {
+          return res.status(500).json({
+            success: false,
+            message: "Failed to fetch OpenPhone records",
+            error: error.message,
+          });
+        }
+
+        if (!records || records.length === 0) {
+          exhausted = true;
+          break;
+        }
+
+        for (const record of records) {
+          const phoneKey =
+            record.phone_number_normalized || record.phone_number || "";
+          const key = phoneKey || record.customer_id || record.id;
+          const existing = byKey.get(key);
+
+          if (!existing) {
+            byKey.set(key, { index: groups.length, count: 1 });
+            groups.push({ key, latest: record, count: 1 });
+          } else {
+            existing.count += 1;
+            groups[existing.index].count = existing.count;
+          }
+        }
+
+        offset += records.length;
+
+        if (records.length < chunkSize) {
+          exhausted = true;
+        }
+      }
+
+      const start = (page - 1) * limit;
+      const slice = groups.slice(start, start + limit);
+      const data = slice.map((group) => ({
+        ...group.latest,
+        thread_key: group.key,
+        thread_count: group.count,
+      }));
+
+      return res.json({
+        success: true,
+        count: data.length,
+        pagination: {
+          page,
+          limit,
+          total: exhausted ? groups.length : Math.max(groups.length, targetCount + 1),
+          totalPages: exhausted ? getTotalPages(groups.length, limit) : page + 1,
+        },
+        data,
+      });
+    }
+
+    let query = supabase
       .from("communications")
-      .select(communicationSelect)
-      .in("channel", openPhoneChannels)
-      .order("created_at", { ascending: false });
+      .select(communicationSelect, { count: "exact" })
+      .in("channel", openPhoneChannels);
+
+    if (search) {
+      query = query.or(
+        [
+          `author_name.ilike.%${search}%`,
+          `phone_number.ilike.%${search}%`,
+          `phone_number_normalized.ilike.%${search}%`,
+          `summary.ilike.%${search}%`,
+          `message_body.ilike.%${search}%`,
+          `call_type.ilike.%${search}%`,
+          `transcript_text.ilike.%${search}%`,
+          `channel.ilike.%${search}%`,
+          `direction.ilike.%${search}%`,
+        ].join(",")
+      );
+    }
+
+    const { data: records, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (error) {
       return res.status(500).json({
@@ -264,6 +505,12 @@ router.get("/openphone", async (_req, res) => {
     return res.json({
       success: true,
       count: records?.length || 0,
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages: getTotalPages(count || 0, limit),
+      },
       data: records || [],
     });
   } catch {

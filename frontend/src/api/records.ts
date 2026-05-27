@@ -5,12 +5,45 @@ import type {
   RecordsResponse,
 } from "../types/record";
 
-export const getEmailRecords = async () => {
-  return apiRequest<RecordsResponse>("/api/records/email");
+type RecordsView = "records" | "conversations";
+
+const buildRecordsQuery = ({
+  page,
+  limit,
+  search,
+  view,
+}: {
+  page: number;
+  limit: number;
+  search: string;
+  view: RecordsView;
+}) => {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("limit", String(limit));
+  params.set("view", view);
+  if (search.trim()) params.set("search", search.trim());
+  return params.toString();
 };
 
-export const getOpenPhoneRecords = async () => {
-  return apiRequest<RecordsResponse>("/api/records/openphone");
+export const getEmailRecords = async (
+  page = 1,
+  limit = 25,
+  search = "",
+  view: RecordsView = "records"
+) => {
+  const query = buildRecordsQuery({ page, limit, search, view });
+  return apiRequest<RecordsResponse>(`/api/records/email?${query}`);
+};
+
+export const getOpenPhoneRecords = async (
+  page = 1,
+  limit = 25,
+  search = "",
+  view: RecordsView = "records"
+) => {
+  const query = buildRecordsQuery({ page, limit, search, view });
+  return apiRequest<RecordsResponse>(`/api/records/openphone?${query}`);
 };
 
 export const getEmailRecordById = async (id: string) => {

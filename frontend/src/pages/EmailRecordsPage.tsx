@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getEmailRecords } from "../api/records";
-import type { CommunicationRecord } from "../types/record";
+import type { CommunicationRecord, Pagination } from "../types/record";
 
 const formatDate = (value: string | null) => {
   if (!value) return "-";
@@ -15,40 +15,33 @@ const formatDate = (value: string | null) => {
   }).format(new Date(value));
 };
 
-const recordMatchesSearch = (record: CommunicationRecord, query: string) => {
-  if (!query) return true;
-
-  const text = [
-    record.author_name,
-    record.email_address,
-    record.subject,
-    record.summary,
-    record.message_body,
-    record.channel,
-    record.direction,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  return text.includes(query.toLowerCase());
-};
+type RecordsView = "conversations" | "records";
 
 export const EmailRecordsPage = () => {
   const navigate = useNavigate();
 
   const [records, setRecords] = useState<CommunicationRecord[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [view, setView] = useState<RecordsView>("conversations");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadRecords = async () => {
+  const loadRecords = async (
+    pageNumber = page,
+    query = searchQuery,
+    nextView: RecordsView = view
+  ) => {
     setIsLoading(true);
     setError("");
 
     try {
-      const response = await getEmailRecords();
+      const response = await getEmailRecords(pageNumber, 25, query, nextView);
       setRecords(response.data);
+      setPagination(response.pagination || null);
+      if (response.pagination) setPage(response.pagination.page);
+      else setPage(pageNumber);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load email records");
     } finally {
@@ -57,14 +50,28 @@ export const EmailRecordsPage = () => {
   };
 
   useEffect(() => {
-    loadRecords();
-  }, []);
+    loadRecords(1, searchQuery, view);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
-  const filteredRecords = useMemo(() => {
-    return records.filter((record) =>
-      recordMatchesSearch(record, searchQuery.trim())
-    );
-  }, [records, searchQuery]);
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      loadRecords(1, searchQuery, view);
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
+  const goToPreviousPage = () => {
+    if (!pagination || pagination.page <= 1) return;
+    loadRecords(pagination.page - 1, searchQuery, view);
+  };
+
+  const goToNextPage = () => {
+    if (!pagination || pagination.page >= pagination.totalPages) return;
+    loadRecords(pagination.page + 1, searchQuery, view);
+  };
 
   return (
     <>
@@ -74,7 +81,10 @@ export const EmailRecordsPage = () => {
           <p>Email messages captured from customer communication history.</p>
         </div>
 
-        <button className="secondary-button" onClick={loadRecords}>
+        <button
+          className="secondary-button"
+          onClick={() => loadRecords(page, searchQuery, view)}
+        >
           Refresh
         </button>
       </section>
@@ -82,31 +92,51 @@ export const EmailRecordsPage = () => {
       {error && (
         <div className="error-box dashboard-error">
           {error}
-          <button onClick={loadRecords}>Retry</button>
+          <button onClick={() => loadRecords(page, searchQuery, view)}>Retry</button>
         </div>
       )}
 
       <section className="table-card">
         <div className="table-toolbar">
           <div>
-            <strong>Email Record List</strong>
+            <strong>Email {view === "conversations" ? "Conversations" : "Records"}</strong>
             <span>
-              {filteredRecords.length.toLocaleString()} of{" "}
-              {records.length.toLocaleString()} records
+              {pagination
+                ? `${pagination.total.toLocaleString()} total`
+                : `${records.length.toLocaleString()} loaded`}
             </span>
           </div>
 
-          <input
-            className="search-input"
-            value={searchQuery}
-            placeholder="Search email records..."
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
+          <div className="table-toolbar-right">
+            <div className="segmented-control">
+              <button
+                type="button"
+                className={view === "conversations" ? "active" : ""}
+                onClick={() => setView("conversations")}
+              >
+                Conversations
+              </button>
+              <button
+                type="button"
+                className={view === "records" ? "active" : ""}
+                onClick={() => setView("records")}
+              >
+                All Records
+              </button>
+            </div>
+
+            <input
+              className="search-input"
+              value={searchQuery}
+              placeholder="Search email..."
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+          </div>
         </div>
 
         {isLoading ? (
           <div className="empty-state">Loading email records...</div>
-        ) : filteredRecords.length === 0 ? (
+        ) : records.length === 0 ? (
           <div className="empty-state">No email records found.</div>
         ) : (
           <div className="ticket-table-wrap">
@@ -122,7 +152,7 @@ export const EmailRecordsPage = () => {
               </thead>
 
               <tbody>
-                {filteredRecords.map((record) => (
+                {records.map((record) => (
                   <tr
                     key={record.id}
                     className="clickable-row"
@@ -152,6 +182,9 @@ export const EmailRecordsPage = () => {
                     <td>
                       <div className="ticket-title-cell">
                         <span>{record.summary || record.message_body || "No summary"}</span>
+                        {view === "conversations" && record.thread_count ? (
+                          <small>{record.thread_count} records</small>
+                        ) : null}
                       </div>
                     </td>
 
@@ -162,7 +195,30 @@ export const EmailRecordsPage = () => {
             </table>
           </div>
         )}
+
+        {pagination && (
+          <div className="pagination-bar">
+            <button
+              onClick={goToPreviousPage}
+              disabled={pagination.page <= 1 || isLoading}
+            >
+              Previous
+            </button>
+
+            <span>
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+
+            <button
+              onClick={goToNextPage}
+              disabled={pagination.page >= pagination.totalPages || isLoading}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </section>
     </>
   );
 };
+

@@ -367,6 +367,53 @@ button:disabled {
   border-bottom: 1px solid #e2e8f0;
 }
 
+.table-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.segmented-control {
+  display: inline-flex;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.segmented-control button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segmented-control button.active {
+  background: #0f172a;
+  color: #fff;
+}
+
+.segmented-control button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.transcript-text-block {
+  padding: 10px 2px 2px;
+}
+
+.transcript-line {
+  margin: 0 0 10px;
+  color: #0f172a;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
 .search-input {
   width: min(100%, 360px);
   border: 1px solid #cbd5e1;

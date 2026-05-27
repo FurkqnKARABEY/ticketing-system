@@ -1,7 +1,7 @@
 import { apiRequest } from "./client";
 import type { TicketDetailResponse, TicketsResponse } from "../types/ticket";
 
-export const getTickets = async (page = 1, limit = 10, search = "") => {
+export const getTickets = async (page = 1, limit = 25, search = "") => {
   const params = new URLSearchParams({
     page: String(page),
     limit: String(limit),

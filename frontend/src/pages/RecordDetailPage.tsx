@@ -214,6 +214,27 @@ const TranscriptChat = ({ transcriptText, customer }: TranscriptChatProps) => {
   );
 };
 
+const TranscriptTextBlock = ({
+  transcriptText,
+}: {
+  transcriptText: string;
+}) => {
+  const lines = transcriptText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="transcript-text-block">
+      {lines.map((line, index) => (
+        <p key={`${index}-${line.slice(0, 16)}`} className="transcript-line">
+          {line}
+        </p>
+      ))}
+    </div>
+  );
+};
+
 type ChatAttachmentProps = {
   attachment: RecordAttachment;
 };
@@ -293,10 +314,14 @@ const MessageBubble = ({
         )}
 
         {mode === "openphone" && transcriptText && (
-          <section className="transcript-block">
-            <strong>Transcript</strong>
-            <TranscriptChat transcriptText={transcriptText} customer={customer} />
-          </section>
+          <details className="message-details">
+            <summary>View transcript</summary>
+            {isOpenPhoneCall ? (
+              <TranscriptTextBlock transcriptText={transcriptText} />
+            ) : (
+              <TranscriptChat transcriptText={transcriptText} customer={customer} />
+            )}
+          </details>
         )}
 
         {mode !== "openphone" && transcriptText && (

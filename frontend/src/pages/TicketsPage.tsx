@@ -38,7 +38,7 @@ export const TicketsPage = () => {
     setError("");
 
     try {
-      const response = await getTickets(pageNumber, 10, query);
+      const response = await getTickets(pageNumber, 25, query);
       setTickets(response.data);
       setPagination(response.pagination);
       setPage(response.pagination.page);

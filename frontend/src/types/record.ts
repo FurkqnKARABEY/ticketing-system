@@ -24,11 +24,21 @@ export type CommunicationRecord = {
   summary: string | null;
   occurred_at: string | null;
   created_at: string;
+  thread_key?: string;
+  thread_count?: number;
+};
+
+export type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 };
 
 export type RecordsResponse = {
   success: boolean;
   count: number;
+  pagination?: Pagination;
   data: CommunicationRecord[];
 };
 

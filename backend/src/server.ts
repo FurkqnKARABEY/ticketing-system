@@ -17,6 +17,7 @@ import openphoneRouter from "./routes/openphone.routes";
 
 import { requireAuth, requireAdmin } from "./middleware/auth.middleware";
 import recordsRouter from "./routes/records.routes";
+import intakeRouter from "./routes/intake.routes";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -64,6 +65,7 @@ app.get("/", (_req, res) => {
 
 // Public auth routes
 app.use("/api/auth", authRouter);
+app.use("/api/intake", intakeRouter);
 
 // Protected application routes
 app.use("/api/records", requireAuth, recordsRouter);

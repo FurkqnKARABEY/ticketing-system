@@ -20,6 +20,7 @@ const actions_routes_1 = __importDefault(require("./routes/actions.routes"));
 const openphone_routes_1 = __importDefault(require("./routes/openphone.routes"));
 const auth_middleware_1 = require("./middleware/auth.middleware");
 const records_routes_1 = __importDefault(require("./routes/records.routes"));
+const intake_routes_1 = __importDefault(require("./routes/intake.routes"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
 app.use((0, helmet_1.default)());
@@ -55,6 +56,7 @@ app.get("/", (_req, res) => {
 });
 // Public auth routes
 app.use("/api/auth", auth_routes_1.default);
+app.use("/api/intake", intake_routes_1.default);
 // Protected application routes
 app.use("/api/records", auth_middleware_1.requireAuth, records_routes_1.default);
 app.use("/api/tickets", auth_middleware_1.requireAuth, tickets_routes_1.default);

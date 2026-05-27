@@ -185,6 +185,7 @@ router.post("/communications/:id/resync", async (req, res) => {
 
     const updates: Record<string, unknown> = {};
     const createdAttachments: any[] = [];
+    const steps: Array<{ step: string; ok: boolean; detail?: string }> = [];
 
     // Calls: recordings + transcript + summary + voicemail
     if (
@@ -194,6 +195,7 @@ router.post("/communications/:id/resync", async (req, res) => {
     ) {
       const callId = communication.openphone_call_id || communication.external_id;
       if (typeof callId === "string" && callId.trim().length > 0) {
+        steps.push({ step: "call:identify", ok: true, detail: callId });
         // recordings
         type RecordingsResponse = {
           data: Array<{
@@ -204,9 +206,19 @@ router.post("/communications/:id/resync", async (req, res) => {
             status: string;
           }>;
         };
-        const recordings = await openPhoneRequest<RecordingsResponse>(
-          `/call-recordings/${callId}`
-        );
+        let recordings: RecordingsResponse | null = null;
+        try {
+          recordings = await openPhoneRequest<RecordingsResponse>(
+            `/call-recordings/${callId}`
+          );
+          steps.push({ step: "call:recordings", ok: true });
+        } catch (err) {
+          steps.push({
+            step: "call:recordings",
+            ok: false,
+            detail: err instanceof Error ? err.message : "Failed",
+          });
+        }
 
         const firstRecording = recordings?.data?.find((r) => r?.url) || null;
         if (firstRecording?.url) {
@@ -238,7 +250,15 @@ router.post("/communications/:id/resync", async (req, res) => {
 
           updates.recording_url = fileUrlToUse;
 
-          const attachmentRow = {
+          const existing = await supabase
+            .from("attachments")
+            .select("id")
+            .eq("communication_id", communication.id)
+            .eq("external_id", firstRecording.id || callId)
+            .maybeSingle();
+
+          if (!existing.data?.id) {
+            const attachmentRow = {
             communication_id: communication.id,
             ticket_id: communication.ticket_id,
             customer_id: communication.customer_id,
@@ -252,14 +272,17 @@ router.post("/communications/:id/resync", async (req, res) => {
             size_bytes: sizeBytes,
             external_id: firstRecording.id || callId,
             communication_channel: communication.channel,
-          };
+            };
 
-          const { data } = await supabase
-            .from("attachments")
-            .insert(attachmentRow)
-            .select()
-            .single();
-          if (data) createdAttachments.push(data);
+            const { data } = await supabase
+              .from("attachments")
+              .insert(attachmentRow)
+              .select()
+              .single();
+            if (data) createdAttachments.push(data);
+          } else {
+            steps.push({ step: "call:recording-attachment", ok: true, detail: "already_exists" });
+          }
         }
 
         // transcript
@@ -284,9 +307,16 @@ router.post("/communications/:id/resync", async (req, res) => {
             updates.transcript_text = dialogue
               .map((turn) => `${turn.identifier}: ${turn.content}`)
               .join("\n");
+            steps.push({ step: "call:transcript", ok: true, detail: `turns=${dialogue.length}` });
+          } else {
+            steps.push({ step: "call:transcript", ok: false, detail: "empty" });
           }
-        } catch {
-          // Transcript may not be ready yet; ignore.
+        } catch (err) {
+          steps.push({
+            step: "call:transcript",
+            ok: false,
+            detail: err instanceof Error ? err.message : "Failed",
+          });
         }
 
         // summary
@@ -310,8 +340,13 @@ router.post("/communications/:id/resync", async (req, res) => {
           if (summaryText && typeof summaryText === "string") {
             updates.summary = summaryText;
           }
-        } catch {
-          // ignore
+          steps.push({ step: "call:summary", ok: true });
+        } catch (err) {
+          steps.push({
+            step: "call:summary",
+            ok: false,
+            detail: err instanceof Error ? err.message : "Failed",
+          });
         }
 
         // voicemail (optional)
@@ -372,15 +407,32 @@ router.post("/communications/:id/resync", async (req, res) => {
               communication_channel: communication.channel,
             };
 
-            const { data } = await supabase
+            const externalKey = voicemail?.data?.id || callId;
+            const { data: existingVoicemailAttachment } = await supabase
               .from("attachments")
-              .insert(attachmentRow)
-              .select()
-              .single();
-            if (data) createdAttachments.push(data);
+              .select("id")
+              .eq("communication_id", communication.id)
+              .eq("external_id", externalKey)
+              .maybeSingle();
+
+            if (!existingVoicemailAttachment?.id) {
+              const { data } = await supabase
+                .from("attachments")
+                .insert(attachmentRow)
+                .select()
+                .single();
+              if (data) createdAttachments.push(data);
+            }
+            steps.push({ step: "call:voicemail", ok: true });
+          } else {
+            steps.push({ step: "call:voicemail", ok: false, detail: "none" });
           }
-        } catch {
-          // ignore
+        } catch (err) {
+          steps.push({
+            step: "call:voicemail",
+            ok: false,
+            detail: err instanceof Error ? err.message : "Failed",
+          });
         }
       }
     }
@@ -394,6 +446,7 @@ router.post("/communications/:id/resync", async (req, res) => {
     ) {
       const storageAvailable = await isSupabaseStorageAvailable();
       const attachments = extractMessageAttachments(communication.raw_payload || {});
+      steps.push({ step: "message:attachments-found", ok: true, detail: `count=${attachments.length}` });
       for (const att of attachments) {
         const fileUrl =
           att?.url ||
@@ -469,12 +522,26 @@ router.post("/communications/:id/resync", async (req, res) => {
           communication_channel: communication.channel,
         };
 
-        const { data } = await supabase
+        const externalKey =
+          typeof externalId === "string" && externalId.trim().length > 0
+            ? externalId
+            : `${communication.id}:${fileUrl}`;
+
+        const { data: existingAttachment } = await supabase
           .from("attachments")
-          .insert(attachmentRow)
-          .select()
-          .single();
-        if (data) createdAttachments.push(data);
+          .select("id")
+          .eq("communication_id", communication.id)
+          .eq("external_id", externalKey)
+          .maybeSingle();
+
+        if (!existingAttachment?.id) {
+          const { data } = await supabase
+            .from("attachments")
+            .insert({ ...attachmentRow, external_id: externalKey })
+            .select()
+            .single();
+          if (data) createdAttachments.push(data);
+        }
       }
     }
 
@@ -489,6 +556,7 @@ router.post("/communications/:id/resync", async (req, res) => {
       data: {
         updates,
         attachments: createdAttachments,
+        steps,
       },
     });
   } catch (error) {

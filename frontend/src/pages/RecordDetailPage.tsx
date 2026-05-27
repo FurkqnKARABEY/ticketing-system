@@ -408,8 +408,10 @@ export const RecordDetailPage = ({ mode }: RecordDetailPageProps) => {
   const [isAddingToTicket, setIsAddingToTicket] = useState(false);
   const [isResyncing, setIsResyncing] = useState(false);
   const [didAutoSync, setDidAutoSync] = useState(false);
+  const [lastSyncReport, setLastSyncReport] = useState<string>("");
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
+  const [actionErrorType, setActionErrorType] = useState<"add" | "sync" | "">("");
 
   const loadRecord = async () => {
     if (!id) return;
@@ -417,6 +419,7 @@ export const RecordDetailPage = ({ mode }: RecordDetailPageProps) => {
     setIsLoading(true);
     setError("");
     setActionError("");
+    setActionErrorType("");
 
     try {
       const response =
@@ -503,6 +506,7 @@ export const RecordDetailPage = ({ mode }: RecordDetailPageProps) => {
 
     setIsAddingToTicket(true);
     setActionError("");
+    setActionErrorType("");
 
     try {
       const response = await addRecordToTicket(record.id);
@@ -511,6 +515,7 @@ export const RecordDetailPage = ({ mode }: RecordDetailPageProps) => {
       setActionError(
         err instanceof Error ? err.message : "Failed to create ticket"
       );
+      setActionErrorType("add");
     } finally {
       setIsAddingToTicket(false);
     }
@@ -520,11 +525,24 @@ export const RecordDetailPage = ({ mode }: RecordDetailPageProps) => {
     if (!record) return;
     setIsResyncing(true);
     setActionError("");
+    setActionErrorType("");
+    setLastSyncReport("");
     try {
-      await resyncOpenPhoneCommunication(record.id);
+      const response = await resyncOpenPhoneCommunication(record.id);
+      const steps = (response as any)?.data?.steps;
+      if (Array.isArray(steps) && steps.length > 0) {
+        const lines = steps.map((step: any) => {
+          const ok = step?.ok ? "OK" : "FAIL";
+          const label = step?.step || "step";
+          const detail = step?.detail ? ` (${step.detail})` : "";
+          return `${ok}: ${label}${detail}`;
+        });
+        setLastSyncReport(lines.join("\n"));
+      }
       await loadRecord();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to resync OpenPhone data");
+      setActionErrorType("sync");
     } finally {
       setIsResyncing(false);
     }
@@ -640,9 +658,19 @@ export const RecordDetailPage = ({ mode }: RecordDetailPageProps) => {
       {actionError && (
         <div className="error-box dashboard-error">
           {actionError}
-          <button onClick={handleAddToTicket} disabled={isAddingToTicket}>
+          <button
+            onClick={actionErrorType === "sync" ? handleResyncOpenPhone : handleAddToTicket}
+            disabled={isAddingToTicket || isResyncing}
+          >
             Retry
           </button>
+        </div>
+      )}
+
+      {lastSyncReport && (
+        <div className="page-card" style={{ whiteSpace: "pre-wrap" }}>
+          <strong>Sync report</strong>
+          <p style={{ marginTop: 8 }}>{lastSyncReport}</p>
         </div>
       )}
 

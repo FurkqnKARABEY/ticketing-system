@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="frontend/src/assets/supportdesk-logo.jpg" alt="Support Desk Logo" width="220">
-</p>
-
 # Support Desk
 
 An omnichannel customer support and ticketing system that centralizes customer conversations, support requests, attachments, and ticket records in one structured workflow.

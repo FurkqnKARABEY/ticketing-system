@@ -83,6 +83,156 @@ router.get("/", async (req, res) => {
         });
     }
 });
+router.post("/resolve", async (req, res) => {
+    try {
+        const { first_name, last_name, full_name, email_address, phone_number, source, } = req.body || {};
+        const email = typeof email_address === "string" && email_address.trim().length > 0
+            ? email_address.trim().toLowerCase()
+            : null;
+        const phone = typeof phone_number === "string" && phone_number.trim().length > 0
+            ? phone_number.trim()
+            : null;
+        const phoneNormalized = phone ? normalizeUsPhone(phone) : null;
+        if (!email && !phoneNormalized) {
+            return res.status(400).json({
+                success: false,
+                message: "Email address or phone number is required",
+            });
+        }
+        let findQuery = supabase_1.supabase
+            .from("customers")
+            .select(`
+        id,
+        first_name,
+        last_name,
+        full_name,
+        email_primary,
+        email_secondary,
+        phone_primary,
+        phone_secondary,
+        phone_primary_normalized,
+        phone_secondary_normalized,
+        source,
+        created_at,
+        updated_at
+      `)
+            .order("created_at", { ascending: false })
+            .limit(1);
+        const orParts = [];
+        if (email) {
+            orParts.push(`email_primary.eq.${email}`);
+            orParts.push(`email_secondary.eq.${email}`);
+        }
+        if (phoneNormalized) {
+            orParts.push(`phone_primary_normalized.eq.${phoneNormalized}`);
+            orParts.push(`phone_secondary_normalized.eq.${phoneNormalized}`);
+        }
+        findQuery = findQuery.or(orParts.join(","));
+        const { data: existingCustomer, error: findError } = await findQuery.maybeSingle();
+        if (findError) {
+            return res.status(500).json({
+                success: false,
+                message: "Failed to resolve customer",
+                error: findError.message,
+            });
+        }
+        if (existingCustomer?.id) {
+            const updatePayload = {
+                updated_at: new Date().toISOString(),
+            };
+            if (email && !existingCustomer.email_primary) {
+                updatePayload.email_primary = email;
+            }
+            else if (email && existingCustomer.email_primary && !existingCustomer.email_secondary && existingCustomer.email_primary !== email) {
+                updatePayload.email_secondary = email;
+            }
+            if (phone && !existingCustomer.phone_primary) {
+                updatePayload.phone_primary = phone;
+                updatePayload.phone_primary_normalized = phoneNormalized;
+            }
+            else if (phone && existingCustomer.phone_primary && !existingCustomer.phone_secondary && existingCustomer.phone_primary !== phone) {
+                updatePayload.phone_secondary = phone;
+                updatePayload.phone_secondary_normalized = phoneNormalized;
+            }
+            if (typeof full_name === "string" && full_name.trim().length > 0 && !existingCustomer.full_name) {
+                updatePayload.full_name = full_name.trim().slice(0, 240);
+            }
+            if (typeof first_name === "string" && first_name.trim().length > 0 && !existingCustomer.first_name) {
+                updatePayload.first_name = first_name.trim().slice(0, 120);
+            }
+            if (typeof last_name === "string" && last_name.trim().length > 0 && !existingCustomer.last_name) {
+                updatePayload.last_name = last_name.trim().slice(0, 120);
+            }
+            const fieldsToUpdate = Object.keys(updatePayload).filter((key) => key !== "updated_at");
+            if (fieldsToUpdate.length > 0) {
+                await supabase_1.supabase
+                    .from("customers")
+                    .update(updatePayload)
+                    .eq("id", existingCustomer.id);
+            }
+            return res.json({
+                success: true,
+                data: existingCustomer,
+            });
+        }
+        const newCustomerPayload = {
+            first_name: typeof first_name === "string" && first_name.trim().length > 0
+                ? first_name.trim().slice(0, 120)
+                : null,
+            last_name: typeof last_name === "string" && last_name.trim().length > 0
+                ? last_name.trim().slice(0, 120)
+                : null,
+            full_name: typeof full_name === "string" && full_name.trim().length > 0
+                ? full_name.trim().slice(0, 240)
+                : null,
+            email_primary: email,
+            phone_primary: phone,
+            phone_primary_normalized: phoneNormalized,
+            source: typeof source === "string" && source.trim().length > 0
+                ? source.trim().slice(0, 120)
+                : "intake",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        };
+        const { data: createdCustomer, error: createError } = await supabase_1.supabase
+            .from("customers")
+            .insert(newCustomerPayload)
+            .select(`
+        id,
+        first_name,
+        last_name,
+        full_name,
+        email_primary,
+        email_secondary,
+        phone_primary,
+        phone_secondary,
+        phone_primary_normalized,
+        phone_secondary_normalized,
+        source,
+        created_at,
+        updated_at
+      `)
+            .single();
+        if (createError || !createdCustomer) {
+            return res.status(500).json({
+                success: false,
+                message: "Failed to create customer",
+                error: createError?.message,
+            });
+        }
+        return res.status(201).json({
+            success: true,
+            data: createdCustomer,
+        });
+    }
+    catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Unexpected server error",
+            error: error instanceof Error ? error.message : "Unknown error",
+        });
+    }
+});
 router.get("/:id", async (req, res) => {
     try {
         const { id } = req.params;

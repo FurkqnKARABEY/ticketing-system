@@ -6,6 +6,19 @@ const validation_1 = require("../utils/validation");
 const ticket_constants_1 = require("../constants/ticket.constants");
 const pagination_1 = require("../utils/pagination");
 const router = (0, express_1.Router)();
+const normalizeUsPhone = (value) => {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length === 10) {
+        return `+1${digits}`;
+    }
+    if (digits.length === 11 && digits.startsWith("1")) {
+        return `+${digits}`;
+    }
+    if (value.startsWith("+") && digits.length >= 10) {
+        return value.trim();
+    }
+    return null;
+};
 const visibleTicketSources = [
     "website_form",
     "email_record",
@@ -111,6 +124,94 @@ router.get("/:id", async (req, res) => {
                 success: false,
                 message: "Ticket not found",
             });
+        }
+        // If the ticket isn't linked to a customer yet (common for website-form intake),
+        // try to resolve the customer using the website_form communication payload.
+        if (!ticket.customer_id) {
+            const { data: intakeCommunication } = await supabase_1.supabase
+                .from("communications")
+                .select(`
+          id,
+          email_address,
+          phone_number,
+          phone_number_normalized,
+          author_name
+        `)
+                .eq("ticket_id", id)
+                .eq("channel", "website_form")
+                .order("created_at", { ascending: true })
+                .limit(1)
+                .maybeSingle();
+            const intakeEmail = typeof intakeCommunication?.email_address === "string" &&
+                intakeCommunication.email_address.trim().length > 0
+                ? intakeCommunication.email_address.trim().toLowerCase()
+                : null;
+            const intakePhoneRaw = typeof intakeCommunication?.phone_number_normalized === "string" &&
+                intakeCommunication.phone_number_normalized.trim().length > 0
+                ? intakeCommunication.phone_number_normalized.trim()
+                : typeof intakeCommunication?.phone_number === "string" &&
+                    intakeCommunication.phone_number.trim().length > 0
+                    ? intakeCommunication.phone_number.trim()
+                    : null;
+            const intakePhoneNormalized = intakePhoneRaw
+                ? normalizeUsPhone(intakePhoneRaw) || intakePhoneRaw
+                : null;
+            if (intakeEmail || intakePhoneNormalized) {
+                const orParts = [];
+                if (intakeEmail) {
+                    orParts.push(`email_primary.eq.${intakeEmail}`);
+                    orParts.push(`email_secondary.eq.${intakeEmail}`);
+                }
+                if (intakePhoneNormalized) {
+                    orParts.push(`phone_primary_normalized.eq.${intakePhoneNormalized}`);
+                    orParts.push(`phone_secondary_normalized.eq.${intakePhoneNormalized}`);
+                }
+                const { data: existingCustomer } = await supabase_1.supabase
+                    .from("customers")
+                    .select(`
+            id
+          `)
+                    .or(orParts.join(","))
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                let resolvedCustomerId = existingCustomer?.id || null;
+                if (!resolvedCustomerId) {
+                    const now = new Date().toISOString();
+                    const { data: createdCustomer } = await supabase_1.supabase
+                        .from("customers")
+                        .insert({
+                        full_name: typeof intakeCommunication?.author_name === "string" &&
+                            intakeCommunication.author_name.trim().length > 0
+                            ? intakeCommunication.author_name.trim().slice(0, 240)
+                            : "Unknown Customer",
+                        email_primary: intakeEmail,
+                        phone_primary: intakePhoneRaw,
+                        phone_primary_normalized: intakePhoneNormalized,
+                        source: "website_form",
+                        created_at: now,
+                        updated_at: now,
+                    })
+                        .select("id")
+                        .single();
+                    resolvedCustomerId = createdCustomer?.id || null;
+                }
+                if (resolvedCustomerId) {
+                    await supabase_1.supabase
+                        .from("tickets")
+                        .update({ customer_id: resolvedCustomerId })
+                        .eq("id", id);
+                    await supabase_1.supabase
+                        .from("communications")
+                        .update({ customer_id: resolvedCustomerId })
+                        .eq("ticket_id", id);
+                    await supabase_1.supabase
+                        .from("attachments")
+                        .update({ customer_id: resolvedCustomerId })
+                        .eq("ticket_id", id);
+                    ticket.customer_id = resolvedCustomerId;
+                }
+            }
         }
         let customer = null;
         if (ticket.customer_id) {

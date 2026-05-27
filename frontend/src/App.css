@@ -333,6 +333,60 @@ button:disabled {
   color: #f36b10;
 }
 
+.secondary-button.compact {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-weight: 800;
+}
+
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.error-inline {
+  margin: 0 0 10px;
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.text-input,
+.text-area {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.text-input:focus,
+.text-area:focus {
+  outline: none;
+  border-color: rgba(243, 107, 16, 0.9);
+  box-shadow: 0 0 0 3px rgba(243, 107, 16, 0.15);
+}
+
+.customer-notes-editor {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.customer-notes-editor label {
+  font-size: 13px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
 .primary-action-button {
   border: 0;
   background: #f36b10;

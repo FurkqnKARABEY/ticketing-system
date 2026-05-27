@@ -5,6 +5,24 @@ import { getPaginationParams, getTotalPages } from "../utils/pagination";
 
 const router = Router();
 
+const normalizeUsPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `+${digits}`;
+  }
+
+  if (value.startsWith("+") && digits.length >= 10) {
+    return value.trim();
+  }
+
+  return null;
+};
+
 router.get("/", async (req, res) => {
   try {
     const { page, limit, from, to } = getPaginationParams(req.query);
@@ -232,6 +250,173 @@ router.get("/:id", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Unexpected server error",
+    });
+  }
+});
+
+router.patch("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidUuid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid customer ID format",
+      });
+    }
+
+    const {
+      first_name,
+      last_name,
+      full_name,
+      email_primary,
+      email_secondary,
+      phone_primary,
+      phone_secondary,
+      shipping_address,
+      billing_address,
+      customer_notes,
+    } = req.body || {};
+
+    const updatePayload: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    const setString = (key: string, value: unknown, maxLen: number) => {
+      if (value === undefined) return;
+      if (value === null) {
+        updatePayload[key] = null;
+        return;
+      }
+      if (typeof value !== "string") {
+        throw new Error(`${key} must be a string`);
+      }
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        updatePayload[key] = null;
+        return;
+      }
+      if (trimmed.length > maxLen) {
+        throw new Error(`${key} is too long`);
+      }
+      updatePayload[key] = trimmed;
+    };
+
+    setString("first_name", first_name, 120);
+    setString("last_name", last_name, 120);
+    setString("full_name", full_name, 240);
+    setString("email_primary", email_primary, 320);
+    setString("email_secondary", email_secondary, 320);
+
+    if (phone_primary !== undefined) {
+      if (phone_primary === null) {
+        updatePayload.phone_primary = null;
+        updatePayload.phone_primary_normalized = null;
+      } else if (typeof phone_primary !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "phone_primary must be a string",
+        });
+      } else {
+        const trimmed = phone_primary.trim();
+        updatePayload.phone_primary = trimmed || null;
+        updatePayload.phone_primary_normalized = trimmed
+          ? normalizeUsPhone(trimmed)
+          : null;
+      }
+    }
+
+    if (phone_secondary !== undefined) {
+      if (phone_secondary === null) {
+        updatePayload.phone_secondary = null;
+        updatePayload.phone_secondary_normalized = null;
+      } else if (typeof phone_secondary !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "phone_secondary must be a string",
+        });
+      } else {
+        const trimmed = phone_secondary.trim();
+        updatePayload.phone_secondary = trimmed || null;
+        updatePayload.phone_secondary_normalized = trimmed
+          ? normalizeUsPhone(trimmed)
+          : null;
+      }
+    }
+
+    if (shipping_address !== undefined) {
+      updatePayload.shipping_address = shipping_address;
+    }
+
+    if (billing_address !== undefined) {
+      updatePayload.billing_address = billing_address;
+    }
+
+    if (customer_notes !== undefined) {
+      if (customer_notes === null) {
+        updatePayload.customer_notes = null;
+      } else if (typeof customer_notes !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "customer_notes must be a string",
+        });
+      } else {
+        updatePayload.customer_notes = customer_notes.trim().slice(0, 5000) || null;
+      }
+    }
+
+    const fieldsToUpdate = Object.keys(updatePayload).filter(
+      (key) => key !== "updated_at"
+    );
+
+    if (fieldsToUpdate.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one field must be provided to update",
+      });
+    }
+
+    const { data: updatedCustomer, error } = await supabase
+      .from("customers")
+      .update(updatePayload)
+      .eq("id", id)
+      .select(`
+        id,
+        first_name,
+        last_name,
+        full_name,
+        email_primary,
+        email_secondary,
+        phone_primary,
+        phone_secondary,
+        phone_primary_normalized,
+        phone_secondary_normalized,
+        shipping_address,
+        billing_address,
+        customer_notes,
+        source,
+        created_at,
+        updated_at
+      `)
+      .single();
+
+    if (error || !updatedCustomer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found or failed to update",
+        error: error?.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Customer updated successfully",
+      data: updatedCustomer,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error instanceof Error ? error.message : "Invalid payload",
     });
   }
 });

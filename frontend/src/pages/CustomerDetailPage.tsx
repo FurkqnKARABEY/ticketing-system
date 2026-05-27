@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { sendEmail, sendSms } from "../api/actions";
 import type { OutboundAttachment } from "../api/actions";
 import { getCustomerById } from "../api/customers";
+import { updateCustomer } from "../api/customers";
 import { EmailComposer, SmsComposer } from "../components/MessageComposers";
 import type {
   CustomerAttachment,
@@ -152,6 +153,13 @@ export const CustomerDetailPage = () => {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [draftFullName, setDraftFullName] = useState("");
+  const [draftEmail, setDraftEmail] = useState("");
+  const [draftPhone, setDraftPhone] = useState("");
+  const [draftNotes, setDraftNotes] = useState("");
 
   const loadCustomer = async () => {
     if (!id) return;
@@ -187,6 +195,20 @@ export const CustomerDetailPage = () => {
     customer?.phone_secondary_normalized ||
     customer?.phone_secondary ||
     "";
+
+  useEffect(() => {
+    if (!customer) return;
+    setDraftFullName(customer.full_name || "");
+    setDraftEmail(customer.email_primary || customer.email_secondary || "");
+    setDraftPhone(
+      customer.phone_primary_normalized ||
+        customer.phone_primary ||
+        customer.phone_secondary_normalized ||
+        customer.phone_secondary ||
+        ""
+    );
+    setDraftNotes(customer.customer_notes || "");
+  }, [customer]);
 
   const attachmentsByCommunication = useMemo(() => {
     const map: Record<string, CustomerAttachment[]> = {};
@@ -243,6 +265,28 @@ export const CustomerDetailPage = () => {
     await loadCustomer();
   };
 
+  const handleSaveCustomer = async () => {
+    if (!customer) return;
+
+    setIsSaving(true);
+    setEditError("");
+
+    try {
+      await updateCustomer(customer.id, {
+        full_name: draftFullName,
+        email_primary: draftEmail,
+        phone_primary: draftPhone,
+        customer_notes: draftNotes,
+      });
+      setIsEditing(false);
+      await loadCustomer();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to update customer");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="page-card">Loading customer...</div>;
   }
@@ -272,22 +316,63 @@ export const CustomerDetailPage = () => {
 
       <section className="ticket-info-top-grid">
         <div className="top-info-card">
-          <h3>Customer Info</h3>
+          <div className="card-header-row">
+            <h3>Customer Info</h3>
+            <button
+              type="button"
+              className="secondary-button compact"
+              onClick={() => {
+                setEditError("");
+                setIsEditing((prev) => !prev);
+              }}
+            >
+              {isEditing ? "Cancel" : "Edit"}
+            </button>
+          </div>
+
+          {editError && <p className="error-inline">{editError}</p>}
 
           <div className="info-list">
             <div>
               <span>Name</span>
-              <strong>{displayText(customer.full_name)}</strong>
+              {isEditing ? (
+                <input
+                  className="text-input"
+                  value={draftFullName}
+                  onChange={(event) => setDraftFullName(event.target.value)}
+                  placeholder="Full name"
+                />
+              ) : (
+                <strong>{displayText(customer.full_name)}</strong>
+              )}
             </div>
 
             <div>
               <span>Email</span>
-              <strong>{displayText(customerEmailAddress)}</strong>
+              {isEditing ? (
+                <input
+                  className="text-input"
+                  value={draftEmail}
+                  onChange={(event) => setDraftEmail(event.target.value)}
+                  placeholder="Email address"
+                />
+              ) : (
+                <strong>{displayText(customerEmailAddress)}</strong>
+              )}
             </div>
 
             <div>
               <span>Phone</span>
-              <strong>{displayText(customerPhoneNumber)}</strong>
+              {isEditing ? (
+                <input
+                  className="text-input"
+                  value={draftPhone}
+                  onChange={(event) => setDraftPhone(event.target.value)}
+                  placeholder="Phone number"
+                />
+              ) : (
+                <strong>{displayText(customerPhoneNumber)}</strong>
+              )}
             </div>
 
             <div>
@@ -295,6 +380,30 @@ export const CustomerDetailPage = () => {
               <strong>{formatDate(customer.created_at)}</strong>
             </div>
           </div>
+
+          {isEditing && (
+            <div className="customer-notes-editor">
+              <label>Notes</label>
+              <textarea
+                className="text-area"
+                value={draftNotes}
+                onChange={(event) => setDraftNotes(event.target.value)}
+                placeholder="Customer notes..."
+                rows={4}
+              />
+
+              <div className="editor-actions">
+                <button
+                  type="button"
+                  className="primary-action-button"
+                  onClick={handleSaveCustomer}
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="top-info-card">
@@ -405,4 +514,3 @@ export const CustomerDetailPage = () => {
     </section>
   );
 };
-

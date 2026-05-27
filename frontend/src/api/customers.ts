@@ -14,3 +14,15 @@ export const getCustomerById = async (id: string) => {
   return apiRequest<CustomerDetailResponse>(`/api/customers/${id}`);
 };
 
+export const updateCustomer = async (
+  id: string,
+  payload: Record<string, unknown>
+) => {
+  return apiRequest<{ success: boolean; message: string; data: unknown }>(
+    `/api/customers/${id}`,
+    {
+      method: "PATCH",
+      body: payload,
+    }
+  );
+};

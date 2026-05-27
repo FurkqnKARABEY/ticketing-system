@@ -1,22 +1,27 @@
 <p align="center">
-  <img src="frontend/assets/logo.png" alt="Furkan Karabey Logo" width="220">
+  <img src="frontend/src/assets/supportdesk-logo.jpg" alt="Support Desk Logo" width="220">
 </p>
 
-# Perraro Support Desk
+# Support Desk
 
-An omnichannel customer support and ticketing system designed for Perraro Electric Bike operations.
+An omnichannel customer support and ticketing system that centralizes customer conversations, support requests, attachments, and ticket records in one structured workflow.
 
-This project collects customer communications from multiple channels, stores them in Supabase, and creates support tickets when needed. It combines automation workflows, database design, file handling, and AI-assisted ticket triage into one support operations system.
+This project combines a TypeScript backend, React frontend, Supabase/PostgreSQL database, n8n workflow automation, OpenPhone, Gmail, Google Drive, and AI-assisted email triage.
 
 ---
 
 ## Overview
 
-Perraro Support Desk is built to centralize customer conversations that normally arrive from different places such as phone calls, SMS/MMS, email, and website forms.
+Support Desk is designed to collect customer communications from multiple channels such as phone calls, SMS/MMS, email, and website forms.
 
-Instead of handling each channel separately, the system normalizes incoming communication data, matches or creates customer records, stores the interaction history, and creates tickets when a support request needs follow-up.
+Instead of leaving support data scattered across different tools, the system normalizes incoming communication data, matches or creates customer records, stores interaction history, and creates tickets when follow-up is needed.
 
-The current version focuses on the intake and automation layer. The next major phase is an internal support panel where staff can view tickets, read communication history, preview attachments, update ticket status, and reply to customers.
+The project includes both the application layer and the automation layer:
+
+- **Backend API** for authentication, tickets, customers, records, search, dashboard data, attachments, and actions
+- **Frontend dashboard** for viewing and managing support operations
+- **n8n workflows** for ingesting external communication events and storing structured records
+- **Supabase/PostgreSQL schema** for customer, ticket, communication, and attachment data
 
 ---
 
@@ -24,18 +29,19 @@ The current version focuses on the intake and automation layer. The next major p
 
 Customer support data often gets fragmented across different tools:
 
-- Phone calls stay inside OpenPhone
+- Phone calls stay inside phone systems
 - SMS and MMS messages are separate from emails
 - Website form submissions are not connected to customer history
 - Attachments and recordings can take up server storage
 - Support requests are hard to track without a ticket system
+- Staff need a single place to search customers, tickets, and communication records
 
 This project solves that by creating a structured support pipeline:
 
 ```txt
 Customer communication
         ↓
-n8n workflow automation
+n8n workflow automation / backend API
         ↓
 Data normalization and deduplication
         ↓
@@ -43,14 +49,43 @@ Supabase customer / communication / ticket records
         ↓
 Google Drive attachment storage
         ↓
-Future internal support dashboard
+Internal support dashboard
 ```
 
 ---
 
 ## Current Features
 
-### 1. OpenPhone Call Intake
+### 1. Backend API
+
+- Express.js + TypeScript backend structure
+- Supabase client configuration
+- JWT-based authentication middleware
+- Admin user creation script
+- Admin password reset script
+- Modular route files for each major resource
+- Pagination and validation utilities
+- Environment-based configuration
+
+### 2. Frontend Dashboard
+
+- React + TypeScript frontend
+- Vite project structure
+- Login page
+- Dashboard page
+- Tickets page
+- Customers page
+- Customer detail page
+- Search page
+- Email records page
+- OpenPhone records page
+- Record detail page
+- Attachments page
+- Users page
+- Shared API client structure
+- Reusable app layout and message composer components
+
+### 3. OpenPhone Call Intake
 
 - Captures inbound and outbound OpenPhone call events
 - Normalizes customer phone numbers
@@ -59,7 +94,7 @@ Future internal support dashboard
 - Saves call communication records in Supabase
 - Prevents duplicate call records using OpenPhone call IDs
 
-### 2. OpenPhone Message Intake
+### 4. OpenPhone Message Intake
 
 - Captures SMS and MMS messages from OpenPhone
 - Normalizes sender and receiver phone numbers
@@ -70,7 +105,7 @@ Future internal support dashboard
 - Stores attachment metadata and Drive view URLs
 - Prevents duplicate message records
 
-### 3. OpenPhone Call Enrichment
+### 5. OpenPhone Call Enrichment
 
 - Runs after call intake to enrich existing call records
 - Fetches call recordings when available
@@ -79,7 +114,7 @@ Future internal support dashboard
 - Updates the existing communication record in Supabase
 - Stores recording and attachment metadata
 
-### 4. Gmail Email Intake with AI Triage
+### 6. Gmail Email Intake with AI Triage
 
 - Receives incoming Gmail messages
 - Uses AI classification to decide whether an email is customer-related
@@ -90,7 +125,7 @@ Future internal support dashboard
 - Creates tickets when needed
 - Uploads email attachments to Google Drive
 
-### 5. Website Ticket Intake
+### 7. Website Ticket Intake
 
 - Receives customer support requests from a website form
 - Supports multipart form submissions with file attachments
@@ -106,15 +141,16 @@ Future internal support dashboard
 
 | Layer | Technology |
 | --- | --- |
-| Workflow Automation | n8n |
+| Backend | Node.js, Express.js, TypeScript |
+| Frontend | React, TypeScript, Vite |
 | Database | Supabase / PostgreSQL |
+| Workflow Automation | n8n |
 | Phone, SMS, MMS | OpenPhone |
 | Email Intake | Gmail |
 | AI Classification | OpenAI |
 | File Storage | Google Drive |
 | Website Form | Shopify Custom Liquid |
-| Planned Backend | Express.js + TypeScript |
-| Planned Frontend | Support dashboard / ticket inbox |
+| Authentication | JWT |
 
 ---
 
@@ -188,6 +224,10 @@ OpenPhone Calls
 OpenPhone Call Intake Workflow
    ↓
 Supabase: customers + communications
+   ↓
+Backend API
+   ↓
+Frontend Dashboard
 
 OpenPhone SMS / MMS
    ↓
@@ -198,6 +238,8 @@ Supabase: customers + communications
 Google Drive: media attachments
    ↓
 Supabase: attachments
+   ↓
+Frontend Dashboard
 
 Gmail Emails
    ↓
@@ -209,7 +251,7 @@ Supabase: customers + communications + tickets
    ↓
 Google Drive: email attachments
    ↓
-Supabase: attachments
+Frontend Dashboard
 
 Website Ticket Form
    ↓
@@ -219,7 +261,7 @@ Supabase: customers + tickets + communications
    ↓
 Google Drive: uploaded files
    ↓
-Supabase: attachments
+Frontend Dashboard
 ```
 
 For a more detailed explanation, see [`docs/architecture.md`](docs/architecture.md).
@@ -229,17 +271,81 @@ For a more detailed explanation, see [`docs/architecture.md`](docs/architecture.
 ## Project Structure
 
 ```txt
-perraro-ticketing-system/
+ticketing-system/
 │
-├── README.md
-├── .gitignore
-├── .env.example
+├── backend/
+│   ├── src/
+│   │   ├── config/
+│   │   │   └── supabase.ts
+│   │   ├── constants/
+│   │   ├── middleware/
+│   │   │   └── auth.middleware.ts
+│   │   ├── routes/
+│   │   │   ├── actions.routes.ts
+│   │   │   ├── attachments.routes.ts
+│   │   │   ├── auth.routes.ts
+│   │   │   ├── communications.routes.ts
+│   │   │   ├── customers.routes.ts
+│   │   │   ├── dashboard.routes.ts
+│   │   │   ├── records.routes.ts
+│   │   │   ├── search.routes.ts
+│   │   │   ├── tickets.routes.ts
+│   │   │   └── users.routes.ts
+│   │   ├── scripts/
+│   │   │   ├── create-admin.ts
+│   │   │   └── reset-admin-password.ts
+│   │   ├── utils/
+│   │   │   ├── pagination.ts
+│   │   │   └── validation.ts
+│   │   └── server.ts
+│   ├── .env.example
+│   ├── package.json
+│   └── tsconfig.json
 │
-├── docs/
-│   └── architecture.md
+├── frontend/
+│   ├── src/
+│   │   ├── api/
+│   │   │   ├── actions.ts
+│   │   │   ├── client.ts
+│   │   │   ├── customers.ts
+│   │   │   ├── dashboard.ts
+│   │   │   ├── records.ts
+│   │   │   └── tickets.ts
+│   │   ├── assets/
+│   │   │   └── supportdesk-logo.jpg
+│   │   ├── components/
+│   │   │   ├── AppLayout.tsx
+│   │   │   └── MessageComposer.tsx
+│   │   ├── pages/
+│   │   │   ├── AttachmentsPage.tsx
+│   │   │   ├── CustomerDetailPage.tsx
+│   │   │   ├── CustomersPage.tsx
+│   │   │   ├── DashboardPage.tsx
+│   │   │   ├── EmailRecordsPage.tsx
+│   │   │   ├── LoginPage.tsx
+│   │   │   ├── OpenPhoneRecordsPage.tsx
+│   │   │   ├── RecordDetailPage.tsx
+│   │   │   ├── SearchPage.tsx
+│   │   │   ├── TicketsPage.tsx
+│   │   │   └── UsersPage.tsx
+│   │   ├── types/
+│   │   │   ├── auth.ts
+│   │   │   ├── customer.ts
+│   │   │   ├── dashboard.ts
+│   │   │   ├── record.ts
+│   │   │   └── ticket.ts
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
 │
 ├── database/
 │   └── schema.sql
+│
+├── docs/
+│   ├── architecture.md
+│   └── shopify-form/
 │
 ├── n8n-workflows/
 │   ├── 001-openphone-call-intake.json
@@ -248,27 +354,62 @@ perraro-ticketing-system/
 │   ├── 004-email-intake.json
 │   └── 005-website-ticket-intake.json
 │
-└── frontend/
-    └── website ticket form / Shopify Custom Liquid assets
+├── .env.example
+├── .gitignore
+└── README.md
 ```
 
-> Note: The repository currently focuses on workflow exports, database structure, and project documentation. The internal support panel is planned as a separate backend/frontend phase.
+---
+
+## Backend Modules
+
+The backend is organized into route-based modules:
+
+| Module | Purpose |
+| --- | --- |
+| `auth.routes.ts` | Login and authentication flow |
+| `tickets.routes.ts` | Ticket list, detail, and updates |
+| `customers.routes.ts` | Customer list and customer detail data |
+| `communications.routes.ts` | Communication records connected to customers and tickets |
+| `records.routes.ts` | Unified communication record views |
+| `dashboard.routes.ts` | Dashboard metrics and summary data |
+| `attachments.routes.ts` | Attachment metadata and file references |
+| `actions.routes.ts` | Operational actions such as replies or status changes |
+| `search.routes.ts` | Global search across support data |
+| `users.routes.ts` | Internal user/admin management |
+
+---
+
+## Frontend Pages
+
+The frontend includes a dashboard-style support interface:
+
+| Page | Purpose |
+| --- | --- |
+| `LoginPage.tsx` | Admin login screen |
+| `DashboardPage.tsx` | Support overview and metrics |
+| `TicketsPage.tsx` | Ticket inbox/list view |
+| `CustomersPage.tsx` | Customer list |
+| `CustomerDetailPage.tsx` | Customer profile and history |
+| `EmailRecordsPage.tsx` | Email communication records |
+| `OpenPhoneRecordsPage.tsx` | Call/SMS-related records |
+| `RecordDetailPage.tsx` | Detailed communication record view |
+| `AttachmentsPage.tsx` | Uploaded attachment records |
+| `SearchPage.tsx` | Global search page |
+| `UsersPage.tsx` | Internal users/admin page |
 
 ---
 
 ## Environment Variables
 
-The repository includes an example environment file:
+The repository includes example environment files for both the root/backend configuration.
 
-```txt
-.env.example
-```
+The backend environment configuration covers:
 
-It documents the required configuration for:
-
-- Supabase
-- JWT authentication for the planned backend
+- Supabase URL and service role key
+- JWT secret and token expiration
 - Initial admin user setup
+- Admin password reset configuration
 - OpenPhone API access
 - SMTP email sending
 - CORS origins
@@ -287,15 +428,23 @@ This project follows these security rules:
 - Google Drive folder IDs should be replaced with placeholders when needed
 - Production webhook URLs should be reviewed before public release
 - Supabase service role keys should only be used on trusted backend or automation environments
+- Authentication-protected routes should go through JWT middleware
 
 ---
 
 ## Current Status
 
-The current version includes the automation and data intake layer.
-
 Completed:
 
+- Backend project structure
+- Express.js + TypeScript setup
+- Supabase backend configuration
+- Authentication middleware
+- Auth, tickets, customers, records, dashboard, search, users, attachments, communications, and actions route modules
+- Admin creation and password reset scripts
+- React + TypeScript frontend setup
+- Dashboard, tickets, customers, records, search, attachments, users, and login pages
+- Shared frontend API client structure
 - OpenPhone call intake workflow
 - OpenPhone message intake workflow
 - OpenPhone call enrichment workflow
@@ -305,21 +454,16 @@ Completed:
 - Google Drive attachment storage strategy
 - Architecture documentation
 
-Planned:
+In progress / planned:
 
-- Express.js + TypeScript backend
-- Authentication and admin login
-- Ticket inbox API
-- Ticket detail API
-- Customer profile API
-- Communication history API
-- Attachment preview support
-- SMS reply through OpenPhone
-- Email reply through SMTP or Gmail
-- Ticket status, priority, and assignment management
-- Internal notes
-- Ticket closure flow
-- Frontend support dashboard
+- Production deployment
+- Final backend endpoint hardening
+- Full dashboard polish
+- Role-based authorization
+- More complete database constraints and indexes
+- Demo screenshots/GIFs for README
+- Test data and seed scripts
+- CI/CD workflow
 
 ---
 
@@ -334,7 +478,18 @@ Planned:
 - [x] Website ticket form intake
 - [x] Attachment upload flow
 
-### Phase 2 — Database Hardening
+### Phase 2 — Application Layer
+
+- [x] Express.js + TypeScript backend structure
+- [x] React + TypeScript frontend structure
+- [x] Authentication middleware
+- [x] Modular route structure
+- [x] Dashboard and support pages
+- [ ] Finalize all API response contracts
+- [ ] Add complete error handling strategy
+- [ ] Add loading and empty states on the frontend
+
+### Phase 3 — Database Hardening
 
 - [ ] Add foreign key constraints
 - [ ] Add unique indexes for external IDs and ticket numbers
@@ -342,24 +497,14 @@ Planned:
 - [ ] Add updated_at triggers
 - [ ] Add seed/demo data for portfolio presentation
 
-### Phase 3 — Backend API
+### Phase 4 — Production Readiness
 
-- [ ] Create Express.js + TypeScript backend
-- [ ] Add authentication
-- [ ] Add ticket list and detail endpoints
-- [ ] Add customer detail endpoints
-- [ ] Add communication history endpoints
-- [ ] Add ticket update endpoints
-
-### Phase 4 — Internal Support Panel
-
-- [ ] Ticket inbox UI
-- [ ] Ticket detail page
-- [ ] Customer profile panel
-- [ ] Communication timeline
-- [ ] Attachment preview modal
-- [ ] Reply by SMS/email
-- [ ] Internal notes
+- [ ] Add deployment documentation
+- [ ] Add Docker setup
+- [ ] Add environment setup guide
+- [ ] Add screenshots and demo walkthrough
+- [ ] Add CI/CD checks
+- [ ] Add basic automated tests
 
 ---
 
@@ -369,14 +514,16 @@ This project is not only a simple ticket form. It is a real-world support operat
 
 It demonstrates:
 
+- Backend API design
+- React dashboard development
 - Workflow automation design
 - API integration thinking
 - Customer and ticket data modeling
 - Supabase/PostgreSQL usage
 - File handling and external storage strategy
 - AI-assisted email triage
-- Practical support operations architecture
-- Separation between automation workflows and future application backend
+- Authentication and admin workflow design
+- Separation between automation workflows, backend API, frontend dashboard, and database schema
 
 ---
 

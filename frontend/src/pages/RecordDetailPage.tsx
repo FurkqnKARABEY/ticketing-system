@@ -7,6 +7,7 @@ import {
   addRecordToTicket,
   getEmailRecordById,
   getOpenPhoneRecordById,
+  resyncOpenPhoneCommunication,
 } from "../api/records";
 import type {
   CommunicationRecord,
@@ -82,6 +83,11 @@ const getDisplayName = (
 
 const getAttachmentOpenUrl = (attachment: RecordAttachment) => {
   return attachment.file_url || "#";
+};
+
+const isDriveLink = (url: string | null) => {
+  if (!url) return false;
+  return url.includes("drive.google.com");
 };
 
 const isModeCommunication = (
@@ -241,18 +247,40 @@ type ChatAttachmentProps = {
 
 const ChatAttachment = ({ attachment }: ChatAttachmentProps) => {
   const openUrl = getAttachmentOpenUrl(attachment);
+  const mime = attachment.mime_type || attachment.file_type || "";
+  const isImage = mime.startsWith("image/");
+  const isVideo = mime.startsWith("video/");
+  const isAudio = mime.startsWith("audio/");
+  const driveLink = isDriveLink(openUrl);
 
   return (
-    <a
-      href={openUrl}
-      target="_blank"
-      rel="noreferrer"
-      className="chat-attachment file drive-attachment"
-    >
-      <strong>{attachment.file_name || "Attachment"}</strong>
-      <span>{attachment.mime_type || attachment.file_type || "File"}</span>
-      <small>Open in Google Drive</small>
-    </a>
+    <div className="chat-attachment">
+      <div className="chat-attachment-meta">
+        <strong>{attachment.file_name || "Attachment"}</strong>
+        <span>{mime || "File"}</span>
+      </div>
+
+      {driveLink ? (
+        <div className="attachment-warning">
+          This attachment is stored in Google Drive and may require sign-in.
+          <a href={openUrl} target="_blank" rel="noreferrer" className="text-link">
+            Open in Drive
+          </a>
+        </div>
+      ) : isImage ? (
+        <a href={openUrl} target="_blank" rel="noreferrer" className="attachment-preview">
+          <img src={openUrl} alt={attachment.file_name || "Attachment"} />
+        </a>
+      ) : isVideo ? (
+        <video className="attachment-video" controls src={openUrl} />
+      ) : isAudio ? (
+        <audio className="attachment-audio" controls src={openUrl} />
+      ) : (
+        <a href={openUrl} target="_blank" rel="noreferrer" className="text-link">
+          Open file
+        </a>
+      )}
+    </div>
   );
 };
 
@@ -378,6 +406,7 @@ export const RecordDetailPage = ({ mode }: RecordDetailPageProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingToTicket, setIsAddingToTicket] = useState(false);
+  const [isResyncing, setIsResyncing] = useState(false);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
 
@@ -461,6 +490,20 @@ export const RecordDetailPage = ({ mode }: RecordDetailPageProps) => {
       );
     } finally {
       setIsAddingToTicket(false);
+    }
+  };
+
+  const handleResyncOpenPhone = async () => {
+    if (!record) return;
+    setIsResyncing(true);
+    setActionError("");
+    try {
+      await resyncOpenPhoneCommunication(record.id);
+      await loadRecord();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to resync OpenPhone data");
+    } finally {
+      setIsResyncing(false);
     }
   };
 
@@ -555,6 +598,17 @@ export const RecordDetailPage = ({ mode }: RecordDetailPageProps) => {
               onClick={handleAddToTicket}
             >
               {isAddingToTicket ? "Creating..." : "Add to Tickets"}
+            </button>
+          )}
+
+          {mode === "openphone" && (
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={isResyncing}
+              onClick={handleResyncOpenPhone}
+            >
+              {isResyncing ? "Syncing..." : "Sync OpenPhone"}
             </button>
           )}
         </div>

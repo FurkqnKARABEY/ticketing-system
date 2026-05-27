@@ -13,6 +13,7 @@ import dashboardRouter from "./routes/dashboard.routes";
 import authRouter from "./routes/auth.routes";
 import usersRouter from "./routes/users.routes";
 import actionsRouter from "./routes/actions.routes";
+import openphoneRouter from "./routes/openphone.routes";
 
 import { requireAuth, requireAdmin } from "./middleware/auth.middleware";
 import recordsRouter from "./routes/records.routes";
@@ -73,6 +74,7 @@ app.use("/api/attachments", requireAuth, attachmentsRouter);
 app.use("/api/search", requireAuth, searchRouter);
 app.use("/api/dashboard", requireAuth, dashboardRouter);
 app.use("/api/actions", requireAuth, actionsRouter);
+app.use("/api/openphone", requireAuth, openphoneRouter);
 
 // Admin-only routes
 app.use("/api/users", requireAuth, requireAdmin, usersRouter);

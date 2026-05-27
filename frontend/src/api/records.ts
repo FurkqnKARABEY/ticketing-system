@@ -62,3 +62,12 @@ export const addRecordToTicket = async (communicationId: string) => {
     }
   );
 };
+
+export const resyncOpenPhoneCommunication = async (communicationId: string) => {
+  return apiRequest<{ success: boolean; message: string; data: unknown }>(
+    `/api/openphone/communications/${communicationId}/resync`,
+    {
+      method: "POST",
+    }
+  );
+};

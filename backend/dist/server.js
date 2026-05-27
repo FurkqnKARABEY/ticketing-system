@@ -17,6 +17,7 @@ const dashboard_routes_1 = __importDefault(require("./routes/dashboard.routes"))
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const users_routes_1 = __importDefault(require("./routes/users.routes"));
 const actions_routes_1 = __importDefault(require("./routes/actions.routes"));
+const openphone_routes_1 = __importDefault(require("./routes/openphone.routes"));
 const auth_middleware_1 = require("./middleware/auth.middleware");
 const records_routes_1 = __importDefault(require("./routes/records.routes"));
 const app = (0, express_1.default)();
@@ -63,6 +64,7 @@ app.use("/api/attachments", auth_middleware_1.requireAuth, attachments_routes_1.
 app.use("/api/search", auth_middleware_1.requireAuth, search_routes_1.default);
 app.use("/api/dashboard", auth_middleware_1.requireAuth, dashboard_routes_1.default);
 app.use("/api/actions", auth_middleware_1.requireAuth, actions_routes_1.default);
+app.use("/api/openphone", auth_middleware_1.requireAuth, openphone_routes_1.default);
 // Admin-only routes
 app.use("/api/users", auth_middleware_1.requireAuth, auth_middleware_1.requireAdmin, users_routes_1.default);
 app.listen(PORT, () => {

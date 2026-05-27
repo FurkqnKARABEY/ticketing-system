@@ -27,6 +27,11 @@ const getAttachmentOpenUrl = (attachment: Attachment) => {
   return attachment.file_url || "#";
 };
 
+const isDriveLink = (url: string | null) => {
+  if (!url) return false;
+  return url.includes("drive.google.com");
+};
+
 const getDisplayName = (
   communication: Communication,
   customer: TicketCustomer | null
@@ -64,18 +69,45 @@ type ChatAttachmentProps = {
 
 const ChatAttachment = ({ attachment }: ChatAttachmentProps) => {
   const openUrl = getAttachmentOpenUrl(attachment);
+  const mime = attachment.mime_type || attachment.file_type || "";
+  const isImage = mime.startsWith("image/");
+  const isVideo = mime.startsWith("video/");
+  const isAudio = mime.startsWith("audio/");
+  const driveLink = isDriveLink(openUrl);
 
   return (
-    <a
-      href={openUrl}
-      target="_blank"
-      rel="noreferrer"
-      className="chat-attachment file drive-attachment"
-    >
-      <strong>{attachment.file_name || "Attachment"}</strong>
-      <span>{attachment.mime_type || attachment.file_type || "File"}</span>
-      <small>{attachment.file_url ? "Open file" : "Stored with message"}</small>
-    </a>
+    <div className="chat-attachment">
+      <div className="chat-attachment-meta">
+        <strong>{attachment.file_name || "Attachment"}</strong>
+        <span>{mime || "File"}</span>
+      </div>
+
+      {driveLink ? (
+        <div className="attachment-warning">
+          This attachment is stored in Google Drive and may require sign-in.
+          <a href={openUrl} target="_blank" rel="noreferrer" className="text-link">
+            Open in Drive
+          </a>
+        </div>
+      ) : isImage ? (
+        <a href={openUrl} target="_blank" rel="noreferrer" className="attachment-preview">
+          <img src={openUrl} alt={attachment.file_name || "Attachment"} />
+        </a>
+      ) : isVideo ? (
+        <video className="attachment-video" controls src={openUrl} />
+      ) : isAudio ? (
+        <audio className="attachment-audio" controls src={openUrl} />
+      ) : (
+        <a
+          href={openUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="text-link"
+        >
+          Open file
+        </a>
+      )}
+    </div>
   );
 };
 

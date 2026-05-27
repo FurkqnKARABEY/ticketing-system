@@ -468,6 +468,48 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.chat-attachment {
+  margin-top: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(248, 250, 252, 0.7);
+}
+
+.chat-attachment-meta {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.chat-attachment-meta span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.attachment-warning {
+  display: grid;
+  gap: 8px;
+  color: #92400e;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.attachment-preview img {
+  max-width: 340px;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  display: block;
+}
+
+.attachment-video,
+.attachment-audio {
+  width: 100%;
+  max-width: 380px;
+}
+
 .search-input {
   width: min(100%, 360px);
   border: 1px solid #cbd5e1;

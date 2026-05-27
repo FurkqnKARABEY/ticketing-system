@@ -407,6 +407,7 @@ export const RecordDetailPage = ({ mode }: RecordDetailPageProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingToTicket, setIsAddingToTicket] = useState(false);
   const [isResyncing, setIsResyncing] = useState(false);
+  const [didAutoSync, setDidAutoSync] = useState(false);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
 
@@ -437,6 +438,28 @@ export const RecordDetailPage = ({ mode }: RecordDetailPageProps) => {
   useEffect(() => {
     loadRecord();
   }, [id, mode]);
+
+  useEffect(() => {
+    if (mode !== "openphone") return;
+    if (!record) return;
+    if (didAutoSync) return;
+
+    const isCall =
+      record.channel.includes("call") ||
+      record.message_type === "call" ||
+      Boolean(record.call_type) ||
+      Boolean(record.openphone_call_id);
+
+    const missingEnrichment =
+      (isCall && !record.transcript_text && !record.recording_url) ||
+      (!isCall && !record.ticket_id);
+
+    if (!missingEnrichment) return;
+
+    setDidAutoSync(true);
+    handleResyncOpenPhone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, record, didAutoSync]);
 
   const attachmentsByCommunication = useMemo(() => {
     return attachments.reduce<Record<string, RecordAttachment[]>>(

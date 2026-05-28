@@ -58,6 +58,7 @@ router.post("/website-ticket-notify", requireIntakeSecret, async (req, res) => {
             ticket_number,
             email: null,
             sms: null,
+            company_sms: null,
         };
         if (email) {
             const smtpHost = process.env.SMTP_HOST;
@@ -122,6 +123,41 @@ router.post("/website-ticket-notify", requireIntakeSecret, async (req, res) => {
                 }
                 else {
                     result.sms = { ok: true, data: body };
+                }
+            }
+        }
+        // Optional: alert the company number for website_form tickets.
+        const companyAlertRaw = process.env.COMPANY_ALERT_PHONE_NUMBER || "";
+        const companyAlert = companyAlertRaw.trim().length > 0 ? normalizeUsPhone(companyAlertRaw) : null;
+        if (companyAlert) {
+            const openphoneApiKey = process.env.OPENPHONE_API_KEY;
+            const openphonePhoneNumberId = process.env.OPENPHONE_PHONE_NUMBER_ID;
+            if (!openphoneApiKey || !openphonePhoneNumberId) {
+                result.company_sms = { ok: false, error: "OpenPhone configuration is missing" };
+            }
+            else {
+                const message = `New website ticket created: ${ticket_number}.`;
+                const response = await fetch("https://api.openphone.com/v1/messages", {
+                    method: "POST",
+                    headers: {
+                        Authorization: openphoneApiKey,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        content: message,
+                        from: openphonePhoneNumberId,
+                        to: [companyAlert],
+                    }),
+                });
+                const body = await response.json().catch(() => null);
+                if (!response.ok) {
+                    result.company_sms = {
+                        ok: false,
+                        error: body?.message || `OpenPhone send failed (${response.status})`,
+                    };
+                }
+                else {
+                    result.company_sms = { ok: true, data: body };
                 }
             }
         }

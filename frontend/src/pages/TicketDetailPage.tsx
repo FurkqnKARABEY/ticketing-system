@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { sendEmail, sendSms } from "../api/actions";
 import type { OutboundAttachment } from "../api/actions";
 import { EmailComposer, SmsComposer } from "../components/MessageComposers";
-import { getTicketById } from "../api/tickets";
+import { getTicketById, updateTicketStatus } from "../api/tickets";
 import type {
   Attachment,
   Communication,
@@ -187,6 +187,7 @@ export const TicketDetailPage = () => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const loadTicket = async () => {
     if (!id) return;
@@ -211,6 +212,18 @@ export const TicketDetailPage = () => {
   useEffect(() => {
     loadTicket();
   }, [id]);
+
+  const handleStatusChange = async (nextStatus: string) => {
+    if (!ticket) return;
+
+    setIsUpdatingStatus(true);
+    try {
+      await updateTicketStatus(ticket.id, nextStatus);
+      await loadTicket();
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   const attachmentsByCommunication = useMemo(() => {
     return attachments.reduce<Record<string, Attachment[]>>((acc, attachment) => {
@@ -349,7 +362,19 @@ export const TicketDetailPage = () => {
           <div className="info-list">
             <div>
               <span>Status</span>
-              <strong>{ticket.status}</strong>
+              <strong>
+                <select
+                  className="ticket-status-select"
+                  value={ticket.status}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  disabled={isUpdatingStatus}
+                >
+                  <option value="new">new</option>
+                  <option value="open">open</option>
+                  <option value="pending">pending</option>
+                  <option value="closed">closed</option>
+                </select>
+              </strong>
             </div>
 
             <div>

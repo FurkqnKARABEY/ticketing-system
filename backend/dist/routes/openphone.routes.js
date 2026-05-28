@@ -177,19 +177,31 @@ router.post("/communications/:id/resync", async (req, res) => {
                     let sizeBytes = null;
                     let fileName = `call-recording-${callId}.mp3`;
                     if (storageAvailable) {
-                        const { bytes, contentType } = await fetchBinary(firstRecording.url);
-                        mimeType = contentType || mimeType;
-                        sizeBytes = bytes.length;
-                        fileName = `call-recording-${callId}.${guessExtension(mimeType)}`;
-                        const stored = await uploadToSupabase({
-                            bytes,
-                            contentType: mimeType,
-                            fileName,
-                            prefix: `inbound/openphone/calls/${callId}`,
-                        });
-                        fileUrlToUse = stored.fileUrl || firstRecording.url;
-                        storageBucket = stored.storageBucket;
-                        storagePath = stored.storagePath;
+                        try {
+                            const { bytes, contentType } = await fetchBinary(firstRecording.url);
+                            mimeType = contentType || mimeType;
+                            sizeBytes = bytes.length;
+                            fileName = `call-recording-${callId}.${guessExtension(mimeType)}`;
+                            const stored = await uploadToSupabase({
+                                bytes,
+                                contentType: mimeType,
+                                fileName,
+                                prefix: `inbound/openphone/calls/${callId}`,
+                            });
+                            fileUrlToUse = stored.fileUrl || firstRecording.url;
+                            storageBucket = stored.storageBucket;
+                            storagePath = stored.storagePath;
+                            steps.push({ step: "call:recording-upload", ok: true });
+                        }
+                        catch (err) {
+                            // Some OpenPhone recording URLs are short-lived or require extra auth.
+                            // Fall back to the OpenPhone URL instead of failing the entire resync.
+                            steps.push({
+                                step: "call:recording-upload",
+                                ok: false,
+                                detail: err instanceof Error ? err.message : "Failed",
+                            });
+                        }
                     }
                     updates.recording_url = fileUrlToUse;
                     const existing = await supabase_1.supabase
@@ -277,19 +289,29 @@ router.post("/communications/:id/resync", async (req, res) => {
                         let sizeBytes = null;
                         let fileName = `voicemail-${callId}.mp3`;
                         if (storageAvailable) {
-                            const { bytes, contentType } = await fetchBinary(url);
-                            mimeType = contentType || mimeType;
-                            sizeBytes = bytes.length;
-                            fileName = `voicemail-${callId}.${guessExtension(mimeType)}`;
-                            const stored = await uploadToSupabase({
-                                bytes,
-                                contentType: mimeType,
-                                fileName,
-                                prefix: `inbound/openphone/voicemails/${callId}`,
-                            });
-                            fileUrlToUse = stored.fileUrl || url;
-                            storageBucket = stored.storageBucket;
-                            storagePath = stored.storagePath;
+                            try {
+                                const { bytes, contentType } = await fetchBinary(url);
+                                mimeType = contentType || mimeType;
+                                sizeBytes = bytes.length;
+                                fileName = `voicemail-${callId}.${guessExtension(mimeType)}`;
+                                const stored = await uploadToSupabase({
+                                    bytes,
+                                    contentType: mimeType,
+                                    fileName,
+                                    prefix: `inbound/openphone/voicemails/${callId}`,
+                                });
+                                fileUrlToUse = stored.fileUrl || url;
+                                storageBucket = stored.storageBucket;
+                                storagePath = stored.storagePath;
+                                steps.push({ step: "call:voicemail-upload", ok: true });
+                            }
+                            catch (err) {
+                                steps.push({
+                                    step: "call:voicemail-upload",
+                                    ok: false,
+                                    detail: err instanceof Error ? err.message : "Failed",
+                                });
+                            }
                         }
                         const attachmentRow = {
                             communication_id: communication.id,
@@ -368,18 +390,28 @@ router.post("/communications/:id/resync", async (req, res) => {
                 let storagePath = null;
                 let sizeBytes = null;
                 if (storageAvailable) {
-                    const { bytes, contentType } = await fetchBinary(fileUrl);
-                    const resolvedMime = contentType || mimeType;
-                    sizeBytes = bytes.length;
-                    const stored = await uploadToSupabase({
-                        bytes,
-                        contentType: resolvedMime,
-                        fileName,
-                        prefix: `inbound/openphone/messages/${communication.openphone_message_id || communication.id}`,
-                    });
-                    fileUrlToUse = stored.fileUrl || fileUrl;
-                    storageBucket = stored.storageBucket;
-                    storagePath = stored.storagePath;
+                    try {
+                        const { bytes, contentType } = await fetchBinary(fileUrl);
+                        const resolvedMime = contentType || mimeType;
+                        sizeBytes = bytes.length;
+                        const stored = await uploadToSupabase({
+                            bytes,
+                            contentType: resolvedMime,
+                            fileName,
+                            prefix: `inbound/openphone/messages/${communication.openphone_message_id || communication.id}`,
+                        });
+                        fileUrlToUse = stored.fileUrl || fileUrl;
+                        storageBucket = stored.storageBucket;
+                        storagePath = stored.storagePath;
+                        steps.push({ step: "message:media-upload", ok: true });
+                    }
+                    catch (err) {
+                        steps.push({
+                            step: "message:media-upload",
+                            ok: false,
+                            detail: err instanceof Error ? err.message : "Failed",
+                        });
+                    }
                 }
                 const externalId = att?.id ||
                     att?.mediaId ||

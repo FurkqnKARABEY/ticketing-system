@@ -448,6 +448,36 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "https://api-tickets.perraro.cloud/api/intake/website-ticket-notify",
+        "sendHeaders": true,
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "x-intake-secret",
+              "value": "={{ $env.INTAKE_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"email_address\": $node[\"Normalize Website Ticket Request\"].json.email_address, \"phone_number\": $node[\"Normalize Website Ticket Request\"].json.phone_number, \"ticket_number\": $json.ticket_number}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1248,
+        -160
+      ],
+      "id": "6e9d7c5b-9e7c-4f21-8a90-f4e610e7c05a",
+      "name": "Notify Ticket Created",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
         "jsCode": "const ticket = $('Create Website Ticket').item.json;\n\nreturn [\n  {\n    json: {\n      success: true,\n      message: 'Your support request has been received.',\n      ticket_number: ticket.ticket_number,\n      ticket_id: ticket.id\n    }\n  }\n];"
       },
       "type": "n8n-nodes-base.code",
@@ -539,6 +569,11 @@
         [
           {
             "node": "Create Website Communication",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Ticket Created",
             "type": "main",
             "index": 0
           }

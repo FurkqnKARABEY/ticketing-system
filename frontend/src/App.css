@@ -1004,6 +1004,21 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.ticket-status-select {
+  width: 100%;
+  max-width: 220px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.ticket-status-select:disabled {
+  opacity: 0.7;
+}
+
 .conversation-main-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

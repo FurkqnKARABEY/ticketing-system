@@ -17,3 +17,10 @@ export const getTickets = async (page = 1, limit = 25, search = "") => {
 export const getTicketById = async (id: string) => {
   return apiRequest<TicketDetailResponse>(`/api/tickets/${id}`);
 };
+
+export const updateTicketStatus = async (id: string, status: string) => {
+  return apiRequest<{ success: boolean; data: unknown }>(`/api/tickets/${id}/status`, {
+    method: "PATCH",
+    body: { status },
+  });
+};

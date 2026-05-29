@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS public.tickets (
   status text NOT NULL DEFAULT 'new'::text,
   priority text NOT NULL DEFAULT 'normal'::text,
   source text NOT NULL DEFAULT 'manual'::text,
+  product_model text,
+  order_number text,
   assigned_agent_id uuid,
   last_activity_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),

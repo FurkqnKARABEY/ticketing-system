@@ -15,6 +15,17 @@ const formatDate = (value: string | null) => {
   }).format(new Date(value));
 };
 
+const getOpenPhonePreview = (record: CommunicationRecord) => {
+  return (
+    record.summary ||
+    record.message_body ||
+    record.call_type ||
+    record.transcript_text ||
+    record.recording_url ||
+    "No message content"
+  );
+};
+
 type RecordsView = "conversations" | "records";
 
 export const OpenPhoneRecordsPage = () => {
@@ -189,12 +200,16 @@ export const OpenPhoneRecordsPage = () => {
                     <td>
                       <div className="ticket-title-cell">
                         <span>
-                          {record.summary ||
-                            record.message_body ||
-                            record.call_type ||
-                            record.transcript_text ||
-                            "No message content"}
+                          {getOpenPhonePreview(record)}
                         </span>
+                        <div className="record-feature-tags">
+                          {record.recording_url && <small>recording</small>}
+                          {record.transcript_text && <small>transcript</small>}
+                          {record.summary && <small>summary</small>}
+                          {(record.channel.includes("mms") ||
+                            record.file_type ||
+                            record.message_type === "mms") && <small>media</small>}
+                        </div>
                         {view === "conversations" && record.thread_count ? (
                           <small>{record.thread_count} records</small>
                         ) : null}
@@ -234,4 +249,3 @@ export const OpenPhoneRecordsPage = () => {
     </>
   );
 };
-

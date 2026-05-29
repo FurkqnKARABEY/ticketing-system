@@ -1,57 +1,41 @@
 # Ticketing System Deployment
 
-This folder deploys only the ticketing system services. Do not run commands from other app folders.
+This folder deploys only the ticketing system services. Do not run commands from unrelated app folders.
 
 ## Services
 
 - `ticketing-frontend`: Vite/React build served by nginx on internal port `80`.
 - `ticketing-backend`: Express/TypeScript API on internal port `3001`.
-- Both services join the existing external Docker network `n8n_default`.
+- Both services join the existing external Docker network used by the reverse proxy.
 - No backend host port is published. Traefik routes traffic by Docker labels.
 - Docker logs are capped at `10m` with `3` files per service.
 
 ## Domains And DNS
 
-Create DNS `A` records pointing to this VPS public IPv4 address:
+Create DNS `A` records pointing to the VPS public IPv4 address:
 
-- `tickets.perraro.cloud`
-- `api-tickets.perraro.cloud`
+- `tickets.example.com`
+- `api-tickets.example.com`
 
-If IPv6 is used on this VPS, also create matching `AAAA` records.
+If IPv6 is used on the VPS, also create matching `AAAA` records.
 
 ## Required Environment
 
 Create `/docker/apps/ticketing-system/.env.production` from `.env.production.example`.
-Keep real values only on the VPS and never commit them.
+Keep real production values only on the VPS and never commit them.
 
-Required values:
-
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `JWT_SECRET`
-- `CORS_ORIGINS=https://tickets.perraro.cloud`
-- `INTAKE_SECRET`
-- `OPENPHONE_API_KEY`
-- `OPENPHONE_PHONE_NUMBER_ID`
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_SECURE`
-- `SMTP_USER`
-- `SMTP_PASS`
-- `SMTP_FROM_NAME`
-- `SMTP_FROM_EMAIL`
-- `SUPABASE_ATTACHMENTS_BUCKET`
+Use placeholder domains in committed files and keep real domains in the server environment only.
 
 Admin bootstrap variables are needed only when running the admin creation or reset scripts.
 
 ## File And Attachment Storage
 
-Do not store permanent binary files on this VPS.
+Do not store permanent binary files on the VPS.
 
 Current app behavior:
 
-- Backend uploads outbound and OpenPhone attachment binaries to Supabase Storage using `SUPABASE_ATTACHMENTS_BUCKET`.
-- Existing n8n workflow documentation describes Google Drive storage for intake media, recordings, voicemail, email attachments, and website uploads.
+- Backend uploads outbound and OpenPhone attachment binaries to Supabase Storage using the configured attachments bucket.
+- Existing n8n workflow documentation describes external storage for intake media, recordings, voicemail, email attachments, and website uploads.
 - Supabase tables should store metadata and external URLs, not local permanent binary files.
 
 Temporary local directory:

@@ -11,6 +11,8 @@ export type Ticket = {
   order_id: string | null;
   assigned_agent_id: string | null;
   last_activity_at: string | null;
+  product_model: string | null;
+  order_number: string | null;
   created_at: string;
   updated_at: string;
   closed_at: string | null;
@@ -102,5 +104,36 @@ export type TicketDetailResponse = {
     customer: TicketCustomer | null;
     communications: Communication[];
     attachments: Attachment[];
+  };
+};
+
+export type TicketUpdatePayload = {
+  customer_full_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  title?: string;
+  description?: string | null;
+  category?: string;
+  priority?: string;
+  status?: string;
+  product_model?: string | null;
+  order_number?: string | null;
+};
+
+export type TicketUpdateResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    ticket: Ticket;
+    customer: TicketCustomer | null;
+  };
+};
+
+export type TicketStatusResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    ticket: Ticket;
+    notifications: Record<string, { ok: boolean; error?: string; data?: unknown }>;
   };
 };

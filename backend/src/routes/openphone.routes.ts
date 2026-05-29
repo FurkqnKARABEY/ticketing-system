@@ -222,6 +222,18 @@ router.post("/communications/:id/resync", async (req, res) => {
 
         const firstRecording = recordings?.data?.find((r) => r?.url) || null;
         if (firstRecording?.url) {
+          const recordingExternalKey = `recording:${firstRecording.id || callId}`;
+          const { data: existingRecordingAttachment } = await supabase
+            .from("attachments")
+            .select("id")
+            .eq("communication_id", communication.id)
+            .eq("external_id", recordingExternalKey)
+            .maybeSingle();
+
+          if (existingRecordingAttachment?.id) {
+            updates.recording_url = communication.recording_url || firstRecording.url;
+            steps.push({ step: "call:recording-attachment", ok: true, detail: "already_exists" });
+          } else {
           const storageAvailable = await isSupabaseStorageAvailable();
           let fileUrlToUse = firstRecording.url;
           let storageBucket: string | null = null;
@@ -250,14 +262,6 @@ router.post("/communications/:id/resync", async (req, res) => {
 
           updates.recording_url = fileUrlToUse;
 
-          const existing = await supabase
-            .from("attachments")
-            .select("id")
-            .eq("communication_id", communication.id)
-            .eq("external_id", firstRecording.id || callId)
-            .maybeSingle();
-
-          if (!existing.data?.id) {
             const attachmentRow = {
             communication_id: communication.id,
             ticket_id: communication.ticket_id,
@@ -270,7 +274,7 @@ router.post("/communications/:id/resync", async (req, res) => {
             storage_path: storagePath,
             mime_type: mimeType,
             size_bytes: sizeBytes,
-            external_id: firstRecording.id || callId,
+            external_id: recordingExternalKey,
             communication_channel: communication.channel,
             };
 
@@ -280,8 +284,6 @@ router.post("/communications/:id/resync", async (req, res) => {
               .select()
               .single();
             if (data) createdAttachments.push(data);
-          } else {
-            steps.push({ step: "call:recording-attachment", ok: true, detail: "already_exists" });
           }
         }
 
@@ -365,65 +367,66 @@ router.post("/communications/:id/resync", async (req, res) => {
           );
           const url = voicemail?.data?.recordingUrl || null;
           if (url) {
-            const storageAvailable = await isSupabaseStorageAvailable();
-            let fileUrlToUse = url;
-            let storageBucket: string | null = null;
-            let storagePath: string | null = null;
-            let mimeType = "audio/mpeg";
-            let sizeBytes: number | null = null;
-            let fileName = `voicemail-${callId}.mp3`;
-
-            if (storageAvailable) {
-              const { bytes, contentType } = await fetchBinary(url);
-              mimeType = contentType || mimeType;
-              sizeBytes = bytes.length;
-              fileName = `voicemail-${callId}.${guessExtension(mimeType)}`;
-
-              const stored = await uploadToSupabase({
-                bytes,
-                contentType: mimeType,
-                fileName,
-                prefix: `inbound/openphone/voicemails/${callId}`,
-              });
-
-              fileUrlToUse = stored.fileUrl || url;
-              storageBucket = stored.storageBucket;
-              storagePath = stored.storagePath;
-            }
-
-            const attachmentRow = {
-              communication_id: communication.id,
-              ticket_id: communication.ticket_id,
-              customer_id: communication.customer_id,
-              file_type: mimeType,
-              file_name: fileName,
-              file_url: fileUrlToUse,
-              source: "openphone",
-              storage_bucket: storageBucket,
-              storage_path: storagePath,
-              mime_type: mimeType,
-              size_bytes: sizeBytes,
-              external_id: voicemail?.data?.id || callId,
-              communication_channel: communication.channel,
-            };
-
-            const externalKey = voicemail?.data?.id || callId;
+            const voicemailExternalKey = `voicemail:${voicemail?.data?.id || callId}`;
             const { data: existingVoicemailAttachment } = await supabase
               .from("attachments")
               .select("id")
               .eq("communication_id", communication.id)
-              .eq("external_id", externalKey)
+              .eq("external_id", voicemailExternalKey)
               .maybeSingle();
 
-            if (!existingVoicemailAttachment?.id) {
+            if (existingVoicemailAttachment?.id) {
+              steps.push({ step: "call:voicemail", ok: true, detail: "already_exists" });
+            } else {
+              const storageAvailable = await isSupabaseStorageAvailable();
+              let fileUrlToUse = url;
+              let storageBucket: string | null = null;
+              let storagePath: string | null = null;
+              let mimeType = "audio/mpeg";
+              let sizeBytes: number | null = null;
+              let fileName = `voicemail-${callId}.mp3`;
+
+              if (storageAvailable) {
+                const { bytes, contentType } = await fetchBinary(url);
+                mimeType = contentType || mimeType;
+                sizeBytes = bytes.length;
+                fileName = `voicemail-${callId}.${guessExtension(mimeType)}`;
+
+                const stored = await uploadToSupabase({
+                  bytes,
+                  contentType: mimeType,
+                  fileName,
+                  prefix: `inbound/openphone/voicemails/${callId}`,
+                });
+
+                fileUrlToUse = stored.fileUrl || url;
+                storageBucket = stored.storageBucket;
+                storagePath = stored.storagePath;
+              }
+
+              const attachmentRow = {
+                communication_id: communication.id,
+                ticket_id: communication.ticket_id,
+                customer_id: communication.customer_id,
+                file_type: mimeType,
+                file_name: fileName,
+                file_url: fileUrlToUse,
+                source: "openphone",
+                storage_bucket: storageBucket,
+                storage_path: storagePath,
+                mime_type: mimeType,
+                size_bytes: sizeBytes,
+                external_id: voicemailExternalKey,
+                communication_channel: communication.channel,
+              };
               const { data } = await supabase
                 .from("attachments")
                 .insert(attachmentRow)
                 .select()
                 .single();
               if (data) createdAttachments.push(data);
+              steps.push({ step: "call:voicemail", ok: true });
             }
-            steps.push({ step: "call:voicemail", ok: true });
           } else {
             steps.push({ step: "call:voicemail", ok: false, detail: "none" });
           }
@@ -498,13 +501,29 @@ router.post("/communications/:id/resync", async (req, res) => {
           storagePath = stored.storagePath;
         }
 
-        const externalId =
+        const rawExternalId =
           att?.id ||
           att?.mediaId ||
           att?.fileId ||
           communication.openphone_message_id ||
           communication.external_id ||
           null;
+        const externalKey =
+          typeof rawExternalId === "string" && rawExternalId.trim().length > 0
+            ? `media:${rawExternalId}`
+            : `media:${communication.id}:${fileUrl}`;
+
+        const { data: existingAttachment } = await supabase
+          .from("attachments")
+          .select("id")
+          .eq("communication_id", communication.id)
+          .eq("external_id", externalKey)
+          .maybeSingle();
+
+        if (existingAttachment?.id) {
+          steps.push({ step: "message:media-attachment", ok: true, detail: "already_exists" });
+          continue;
+        }
 
         const attachmentRow = {
           communication_id: communication.id,
@@ -518,30 +537,16 @@ router.post("/communications/:id/resync", async (req, res) => {
           storage_path: storagePath,
           mime_type: mimeType,
           size_bytes: sizeBytes,
-          external_id: externalId,
+          external_id: externalKey,
           communication_channel: communication.channel,
         };
 
-        const externalKey =
-          typeof externalId === "string" && externalId.trim().length > 0
-            ? externalId
-            : `${communication.id}:${fileUrl}`;
-
-        const { data: existingAttachment } = await supabase
+        const { data } = await supabase
           .from("attachments")
-          .select("id")
-          .eq("communication_id", communication.id)
-          .eq("external_id", externalKey)
-          .maybeSingle();
-
-        if (!existingAttachment?.id) {
-          const { data } = await supabase
-            .from("attachments")
-            .insert({ ...attachmentRow, external_id: externalKey })
-            .select()
-            .single();
-          if (data) createdAttachments.push(data);
-        }
+          .insert(attachmentRow)
+          .select()
+          .single();
+        if (data) createdAttachments.push(data);
       }
     }
 
@@ -569,4 +574,3 @@ router.post("/communications/:id/resync", async (req, res) => {
 });
 
 export default router;
-

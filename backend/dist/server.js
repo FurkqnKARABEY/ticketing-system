@@ -23,6 +23,7 @@ const records_routes_1 = __importDefault(require("./routes/records.routes"));
 const intake_routes_1 = __importDefault(require("./routes/intake.routes"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
+app.set("trust proxy", 1);
 app.use((0, helmet_1.default)());
 app.use((0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000,

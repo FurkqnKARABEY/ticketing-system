@@ -1,0 +1,58 @@
+services:
+  ticketing-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./.env.production
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      TEMP_DIR: /var/tmp/ticketing-system
+    volumes:
+      - /var/tmp/ticketing-system:/var/tmp/ticketing-system
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=n8n_default"
+      - "traefik.http.routers.ticketing-backend.rule=Host(`api-tickets.perraro.cloud`)"
+      - "traefik.http.routers.ticketing-backend.entrypoints=websecure"
+      - "traefik.http.routers.ticketing-backend.tls=true"
+      - "traefik.http.routers.ticketing-backend.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.ticketing-backend.loadbalancer.server.port=3001"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - n8n_default
+
+  ticketing-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: https://api-tickets.perraro.cloud
+    restart: unless-stopped
+    depends_on:
+      - ticketing-backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=n8n_default"
+      - "traefik.http.routers.ticketing-frontend.rule=Host(`tickets.perraro.cloud`)"
+      - "traefik.http.routers.ticketing-frontend.entrypoints=websecure"
+      - "traefik.http.routers.ticketing-frontend.tls=true"
+      - "traefik.http.routers.ticketing-frontend.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.ticketing-frontend.loadbalancer.server.port=80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - n8n_default
+
+networks:
+  n8n_default:
+    external: true

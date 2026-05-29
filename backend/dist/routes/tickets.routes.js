@@ -1,11 +1,84 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const nodemailer_1 = __importDefault(require("nodemailer"));
 const supabase_1 = require("../config/supabase");
 const validation_1 = require("../utils/validation");
 const ticket_constants_1 = require("../constants/ticket.constants");
 const pagination_1 = require("../utils/pagination");
 const router = (0, express_1.Router)();
+const ticketSelect = `
+  id,
+  ticket_number,
+  title,
+  description,
+  category,
+  status,
+  priority,
+  source,
+  customer_id,
+  order_id,
+  assigned_agent_id,
+  last_activity_at,
+  product_model,
+  order_number,
+  created_at,
+  updated_at,
+  closed_at
+`;
+const communicationSelect = `
+  id,
+  ticket_id,
+  customer_id,
+  channel,
+  direction,
+  author_type,
+  author_name,
+  phone_number,
+  phone_number_normalized,
+  email_address,
+  subject,
+  message_body,
+  message_type,
+  external_id,
+  openphone_call_id,
+  openphone_message_id,
+  email_message_id,
+  call_type,
+  file_type,
+  recording_url,
+  transcript_url,
+  transcript_text,
+  summary,
+  occurred_at,
+  created_at
+`;
+const attachmentSelect = `
+  id,
+  communication_id,
+  ticket_id,
+  customer_id,
+  file_type,
+  file_name,
+  file_url,
+  source,
+  storage_bucket,
+  storage_path,
+  mime_type,
+  size_bytes,
+  external_id,
+  communication_channel,
+  created_at
+`;
+const normalizeEmail = (value) => {
+    if (typeof value !== "string")
+        return null;
+    const email = value.trim().toLowerCase();
+    return email.length > 0 ? email : null;
+};
 const normalizeUsPhone = (value) => {
     const digits = value.replace(/\D/g, "");
     if (digits.length === 10) {
@@ -18,6 +91,131 @@ const normalizeUsPhone = (value) => {
         return value.trim();
     }
     return null;
+};
+const getPhoneVariants = (...values) => {
+    const variants = new Set();
+    for (const value of values) {
+        if (!value)
+            continue;
+        const trimmed = value.trim();
+        const digits = trimmed.replace(/\D/g, "");
+        const normalized = normalizeUsPhone(trimmed);
+        if (trimmed)
+            variants.add(trimmed);
+        if (normalized)
+            variants.add(normalized);
+        if (digits.length >= 10)
+            variants.add(digits.slice(-10));
+    }
+    return Array.from(variants);
+};
+const getTextValue = (value, maxLength) => {
+    if (value === undefined)
+        return undefined;
+    if (value === null)
+        return null;
+    if (typeof value !== "string")
+        return undefined;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed.slice(0, maxLength) : null;
+};
+const getSmtpConfig = () => {
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = Number(process.env.SMTP_PORT || 587);
+    const smtpSecure = process.env.SMTP_SECURE === "true";
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+    const smtpFromName = process.env.SMTP_FROM_NAME || "Support Desk";
+    const smtpFromEmail = process.env.SMTP_FROM_EMAIL || smtpUser;
+    if (!smtpHost || !smtpUser || !smtpPass || !smtpFromEmail) {
+        throw new Error("SMTP configuration is missing");
+    }
+    return {
+        smtpHost,
+        smtpPort,
+        smtpSecure,
+        smtpUser,
+        smtpPass,
+        smtpFromName,
+        smtpFromEmail,
+    };
+};
+const sendStatusEmail = async ({ to, ticketNumber, status, title, }) => {
+    const config = getSmtpConfig();
+    const transporter = nodemailer_1.default.createTransport({
+        host: config.smtpHost,
+        port: config.smtpPort,
+        secure: config.smtpSecure,
+        auth: { user: config.smtpUser, pass: config.smtpPass },
+    });
+    const message = `Hello,\n\nYour support ticket status has been updated.\n\nTicket Number: ${ticketNumber}\nStatus: ${status}\n${title ? `Ticket: ${title}\n` : ""}\nThank you,\nSupport Desk`;
+    return {
+        message,
+        sent: await transporter.sendMail({
+            from: `"${config.smtpFromName}" <${config.smtpFromEmail}>`,
+            to,
+            subject: `Ticket ${ticketNumber} status updated: ${status}`,
+            text: message,
+            html: message.replace(/\n/g, "<br />"),
+        }),
+    };
+};
+const sendStatusSms = async ({ to, ticketNumber, status, }) => {
+    const openphoneApiKey = process.env.OPENPHONE_API_KEY;
+    const openphonePhoneNumberId = process.env.OPENPHONE_PHONE_NUMBER_ID;
+    const normalizedTo = normalizeUsPhone(to);
+    if (!openphoneApiKey || !openphonePhoneNumberId) {
+        throw new Error("OpenPhone configuration is missing");
+    }
+    if (!normalizedTo) {
+        throw new Error("Invalid customer phone number");
+    }
+    const message = `Your support ticket ${ticketNumber} status is now: ${status}.`;
+    const response = await fetch("https://api.openphone.com/v1/messages", {
+        method: "POST",
+        headers: {
+            Authorization: openphoneApiKey,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            content: message,
+            from: openphonePhoneNumberId,
+            to: [normalizedTo],
+        }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+        throw new Error(body?.message || `OpenPhone send failed (${response.status})`);
+    }
+    return { body, message, normalizedTo };
+};
+const logNotificationCommunication = async ({ ticketId, customerId, channel, to, subject, message, ok, externalId, error, }) => {
+    const now = new Date().toISOString();
+    try {
+        await supabase_1.supabase.from("communications").insert({
+            ticket_id: ticketId,
+            customer_id: customerId,
+            channel,
+            direction: "outgoing",
+            author_type: "agent",
+            author_name: "Support Team",
+            email_address: channel === "email" ? to : null,
+            phone_number: channel === "sms" ? to : null,
+            phone_number_normalized: channel === "sms" ? normalizeUsPhone(to) : null,
+            subject: subject || null,
+            message_body: message,
+            message_type: "status_notification",
+            external_id: externalId || null,
+            email_message_id: channel === "email" ? externalId || null : null,
+            openphone_message_id: channel === "sms" ? externalId || null : null,
+            summary: ok ? "Notification sent" : `Notification failed: ${error || "Unknown error"}`,
+            occurred_at: now,
+            created_at: now,
+        });
+    }
+    catch {
+        // Notification delivery results should still be returned if audit logging fails.
+    }
 };
 const visibleTicketSources = [
     "website_form",
@@ -33,23 +231,7 @@ router.get("/", async (req, res) => {
             : "";
         let query = supabase_1.supabase
             .from("tickets")
-            .select(`
-        id,
-        ticket_number,
-        title,
-        description,
-        category,
-        status,
-        priority,
-        source,
-        customer_id,
-        order_id,
-        assigned_agent_id,
-        last_activity_at,
-        created_at,
-        updated_at,
-        closed_at
-        `, { count: "exact" })
+            .select(ticketSelect, { count: "exact" })
             .in("source", visibleTicketSources);
         if (search) {
             query = query.or([
@@ -100,23 +282,7 @@ router.get("/:id", async (req, res) => {
         }
         const { data: ticket, error: ticketError } = await supabase_1.supabase
             .from("tickets")
-            .select(`
-        id,
-        ticket_number,
-        title,
-        description,
-        category,
-        status,
-        priority,
-        source,
-        customer_id,
-        order_id,
-        assigned_agent_id,
-        last_activity_at,
-        created_at,
-        updated_at,
-        closed_at
-      `)
+            .select(ticketSelect)
             .eq("id", id)
             .single();
         if (ticketError || !ticket) {
@@ -241,43 +407,27 @@ router.get("/:id", async (req, res) => {
                 customer = customerData;
             }
         }
-        let communicationsQuery = supabase_1.supabase
-            .from("communications")
-            .select(`
-        id,
-        ticket_id,
-        customer_id,
-        channel,
-        direction,
-        author_type,
-        author_name,
-        phone_number,
-        phone_number_normalized,
-        email_address,
-        subject,
-        message_body,
-        message_type,
-        external_id,
-        openphone_call_id,
-        openphone_message_id,
-        email_message_id,
-        call_type,
-        file_type,
-        recording_url,
-        transcript_url,
-        transcript_text,
-        summary,
-        occurred_at,
-        created_at
-      `)
-            .order("created_at", { ascending: true });
+        const emailAddresses = [
+            normalizeEmail(customer?.email_primary),
+            normalizeEmail(customer?.email_secondary),
+        ].filter(Boolean);
+        const phoneVariants = getPhoneVariants(customer?.phone_primary_normalized, customer?.phone_primary, customer?.phone_secondary_normalized, customer?.phone_secondary);
+        const matchParts = [`ticket_id.eq.${id}`];
         if (ticket.customer_id) {
-            communicationsQuery = communicationsQuery.eq("customer_id", ticket.customer_id);
+            matchParts.push(`customer_id.eq.${ticket.customer_id}`);
         }
-        else {
-            communicationsQuery = communicationsQuery.eq("ticket_id", id);
+        for (const email of emailAddresses) {
+            matchParts.push(`email_address.eq.${email}`);
         }
-        const { data: communications, error: communicationsError } = await communicationsQuery;
+        for (const phone of phoneVariants) {
+            matchParts.push(`phone_number.eq.${phone}`);
+            matchParts.push(`phone_number_normalized.eq.${phone}`);
+        }
+        const { data: matchedCommunications, error: communicationsError } = await supabase_1.supabase
+            .from("communications")
+            .select(communicationSelect)
+            .or(matchParts.join(","))
+            .order("created_at", { ascending: true });
         if (communicationsError) {
             return res.status(500).json({
                 success: false,
@@ -285,33 +435,20 @@ router.get("/:id", async (req, res) => {
                 error: communicationsError.message,
             });
         }
-        let attachmentsQuery = supabase_1.supabase
-            .from("attachments")
-            .select(`
-        id,
-        communication_id,
-        ticket_id,
-        customer_id,
-        file_type,
-        file_name,
-        file_url,
-        source,
-        storage_bucket,
-        storage_path,
-        mime_type,
-        size_bytes,
-        external_id,
-        communication_channel,
-        created_at
-      `)
-            .order("created_at", { ascending: true });
+        const communications = Array.from(new Map((matchedCommunications || []).map((communication) => [communication.id, communication])).values());
+        const communicationIds = communications.map((communication) => communication.id);
+        const attachmentMatchParts = [`ticket_id.eq.${id}`];
         if (ticket.customer_id) {
-            attachmentsQuery = attachmentsQuery.eq("customer_id", ticket.customer_id);
+            attachmentMatchParts.push(`customer_id.eq.${ticket.customer_id}`);
         }
-        else {
-            attachmentsQuery = attachmentsQuery.eq("ticket_id", id);
+        for (const communicationId of communicationIds) {
+            attachmentMatchParts.push(`communication_id.eq.${communicationId}`);
         }
-        const { data: attachments, error: attachmentsError } = await attachmentsQuery;
+        const { data: matchedAttachments, error: attachmentsError } = await supabase_1.supabase
+            .from("attachments")
+            .select(attachmentSelect)
+            .or(attachmentMatchParts.join(","))
+            .order("created_at", { ascending: true });
         if (attachmentsError) {
             return res.status(500).json({
                 success: false,
@@ -324,8 +461,8 @@ router.get("/:id", async (req, res) => {
             data: {
                 ticket,
                 customer,
-                communications: communications || [],
-                attachments: attachments || [],
+                communications,
+                attachments: Array.from(new Map((matchedAttachments || []).map((attachment) => [attachment.id, attachment])).values()),
             },
         });
     }
@@ -373,19 +510,7 @@ router.patch("/:id/status", async (req, res) => {
             .from("tickets")
             .update(updatePayload)
             .eq("id", id)
-            .select(`
-        id,
-        ticket_number,
-        title,
-        category,
-        status,
-        priority,
-        source,
-        customer_id,
-        created_at,
-        updated_at,
-        closed_at
-      `)
+            .select(ticketSelect)
             .single();
         if (error || !updatedTicket) {
             return res.status(404).json({
@@ -394,10 +519,110 @@ router.patch("/:id/status", async (req, res) => {
                 error: error?.message,
             });
         }
+        const notifications = {
+            email: { ok: false, error: "Customer email is missing" },
+            sms: { ok: false, error: "Customer phone is missing" },
+        };
+        const { data: customer } = updatedTicket.customer_id
+            ? await supabase_1.supabase
+                .from("customers")
+                .select("id, full_name, email_primary, email_secondary, phone_primary, phone_secondary, phone_primary_normalized, phone_secondary_normalized")
+                .eq("id", updatedTicket.customer_id)
+                .maybeSingle()
+            : { data: null };
+        const email = normalizeEmail(customer?.email_primary) || normalizeEmail(customer?.email_secondary);
+        const phone = customer?.phone_primary_normalized ||
+            customer?.phone_primary ||
+            customer?.phone_secondary_normalized ||
+            customer?.phone_secondary ||
+            null;
+        if (email) {
+            const subject = `Ticket ${updatedTicket.ticket_number} status updated: ${status}`;
+            try {
+                const emailResult = await sendStatusEmail({
+                    to: email,
+                    ticketNumber: updatedTicket.ticket_number,
+                    status,
+                    title: updatedTicket.title,
+                });
+                notifications.email = {
+                    ok: true,
+                    data: {
+                        messageId: emailResult.sent.messageId,
+                        accepted: emailResult.sent.accepted,
+                        rejected: emailResult.sent.rejected,
+                    },
+                };
+                await logNotificationCommunication({
+                    ticketId: updatedTicket.id,
+                    customerId: updatedTicket.customer_id,
+                    channel: "email",
+                    to: email,
+                    subject,
+                    message: emailResult.message,
+                    ok: true,
+                    externalId: emailResult.sent.messageId || null,
+                });
+            }
+            catch (notificationError) {
+                const message = notificationError instanceof Error
+                    ? notificationError.message
+                    : "Email notification failed";
+                notifications.email = { ok: false, error: message };
+                await logNotificationCommunication({
+                    ticketId: updatedTicket.id,
+                    customerId: updatedTicket.customer_id,
+                    channel: "email",
+                    to: email,
+                    subject,
+                    message: `Ticket ${updatedTicket.ticket_number} status changed to ${status}.`,
+                    ok: false,
+                    error: message,
+                });
+            }
+        }
+        if (phone) {
+            try {
+                const smsResult = await sendStatusSms({
+                    to: phone,
+                    ticketNumber: updatedTicket.ticket_number,
+                    status,
+                });
+                const messageId = smsResult.body?.data?.id || smsResult.body?.id || null;
+                notifications.sms = { ok: true, data: smsResult.body };
+                await logNotificationCommunication({
+                    ticketId: updatedTicket.id,
+                    customerId: updatedTicket.customer_id,
+                    channel: "sms",
+                    to: smsResult.normalizedTo,
+                    message: smsResult.message,
+                    ok: true,
+                    externalId: messageId,
+                });
+            }
+            catch (notificationError) {
+                const message = notificationError instanceof Error
+                    ? notificationError.message
+                    : "SMS notification failed";
+                notifications.sms = { ok: false, error: message };
+                await logNotificationCommunication({
+                    ticketId: updatedTicket.id,
+                    customerId: updatedTicket.customer_id,
+                    channel: "sms",
+                    to: phone,
+                    message: `Ticket ${updatedTicket.ticket_number} status changed to ${status}.`,
+                    ok: false,
+                    error: message,
+                });
+            }
+        }
         return res.json({
             success: true,
             message: "Ticket status updated successfully",
-            data: updatedTicket,
+            data: {
+                ticket: updatedTicket,
+                notifications,
+            },
         });
     }
     catch {
@@ -437,19 +662,7 @@ router.patch("/:id/priority", async (req, res) => {
             updated_at: new Date().toISOString(),
         })
             .eq("id", id)
-            .select(`
-        id,
-        ticket_number,
-        title,
-        category,
-        status,
-        priority,
-        source,
-        customer_id,
-        created_at,
-        updated_at,
-        closed_at
-      `)
+            .select(ticketSelect)
             .single();
         if (error || !updatedTicket) {
             return res.status(404).json({
@@ -474,7 +687,7 @@ router.patch("/:id/priority", async (req, res) => {
 router.patch("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, description, category } = req.body;
+        const { title, description, category, priority, status, product_model, order_number, customer_full_name, email, phone, } = req.body;
         if (!(0, validation_1.isValidUuid)(id)) {
             return res.status(400).json({
                 success: false,
@@ -530,31 +743,132 @@ router.patch("/:id", async (req, res) => {
             }
             updatePayload.category = category;
         }
+        if (priority !== undefined) {
+            if (typeof priority !== "string" || !ticket_constants_1.allowedPriorities.includes(priority)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid priority value",
+                    allowedPriorities: ticket_constants_1.allowedPriorities,
+                });
+            }
+            updatePayload.priority = priority;
+        }
+        if (status !== undefined) {
+            if (typeof status !== "string" || !ticket_constants_1.allowedStatuses.includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid status value",
+                    allowedStatuses: ticket_constants_1.allowedStatuses,
+                });
+            }
+            updatePayload.status = status;
+            updatePayload.closed_at = status === "closed" ? new Date().toISOString() : null;
+        }
+        const productModelValue = getTextValue(product_model, 240);
+        if (productModelValue !== undefined) {
+            updatePayload.product_model = productModelValue;
+        }
+        const orderNumberValue = getTextValue(order_number, 120);
+        if (orderNumberValue !== undefined) {
+            updatePayload.order_number = orderNumberValue;
+        }
+        const normalizedCustomerEmail = normalizeEmail(email);
+        const normalizedCustomerPhone = typeof phone === "string" && phone.trim().length > 0
+            ? normalizeUsPhone(phone) || null
+            : null;
+        const customerNameValue = getTextValue(customer_full_name, 240);
+        const customerFieldsProvided = customerNameValue !== undefined ||
+            email !== undefined ||
+            phone !== undefined;
+        if (email !== undefined && typeof email === "string" && email.trim() && !normalizedCustomerEmail) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid email value",
+            });
+        }
+        if (phone !== undefined && typeof phone === "string" && phone.trim() && !normalizedCustomerPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone must be a US number that can be normalized to +1XXXXXXXXXX",
+            });
+        }
         const fieldsToUpdate = Object.keys(updatePayload).filter((key) => key !== "updated_at");
-        if (fieldsToUpdate.length === 0) {
+        if (fieldsToUpdate.length === 0 && !customerFieldsProvided) {
             return res.status(400).json({
                 success: false,
                 message: "At least one field must be provided to update",
             });
         }
+        const { data: existingTicket, error: existingTicketError } = await supabase_1.supabase
+            .from("tickets")
+            .select(ticketSelect)
+            .eq("id", id)
+            .single();
+        if (existingTicketError || !existingTicket) {
+            return res.status(404).json({
+                success: false,
+                message: "Ticket not found",
+            });
+        }
+        let customerId = existingTicket.customer_id;
+        let updatedCustomer = null;
+        if (customerFieldsProvided) {
+            const now = new Date().toISOString();
+            const customerPayload = {
+                updated_at: now,
+            };
+            if (customerNameValue !== undefined)
+                customerPayload.full_name = customerNameValue;
+            if (email !== undefined)
+                customerPayload.email_primary = normalizedCustomerEmail;
+            if (phone !== undefined) {
+                customerPayload.phone_primary = typeof phone === "string" ? phone.trim() || null : null;
+                customerPayload.phone_primary_normalized = normalizedCustomerPhone;
+            }
+            if (!customerId) {
+                const { data: createdCustomer, error: createCustomerError } = await supabase_1.supabase
+                    .from("customers")
+                    .insert({
+                    ...customerPayload,
+                    full_name: customerPayload.full_name || "Unknown Customer",
+                    source: existingTicket.source || "manual",
+                    created_at: now,
+                })
+                    .select("id, first_name, last_name, full_name, email_primary, email_secondary, phone_primary, phone_secondary, phone_primary_normalized, phone_secondary_normalized, shipping_address, billing_address, customer_notes, source, created_at, updated_at")
+                    .single();
+                if (createCustomerError || !createdCustomer) {
+                    return res.status(500).json({
+                        success: false,
+                        message: "Failed to create customer",
+                        error: createCustomerError?.message,
+                    });
+                }
+                customerId = createdCustomer.id;
+                updatePayload.customer_id = customerId;
+                updatedCustomer = createdCustomer;
+            }
+            else {
+                const { data: customerData, error: customerError } = await supabase_1.supabase
+                    .from("customers")
+                    .update(customerPayload)
+                    .eq("id", customerId)
+                    .select("id, first_name, last_name, full_name, email_primary, email_secondary, phone_primary, phone_secondary, phone_primary_normalized, phone_secondary_normalized, shipping_address, billing_address, customer_notes, source, created_at, updated_at")
+                    .single();
+                if (customerError || !customerData) {
+                    return res.status(500).json({
+                        success: false,
+                        message: "Failed to update customer",
+                        error: customerError?.message,
+                    });
+                }
+                updatedCustomer = customerData;
+            }
+        }
         const { data: updatedTicket, error } = await supabase_1.supabase
             .from("tickets")
             .update(updatePayload)
             .eq("id", id)
-            .select(`
-        id,
-        ticket_number,
-        title,
-        description,
-        category,
-        status,
-        priority,
-        source,
-        customer_id,
-        created_at,
-        updated_at,
-        closed_at
-      `)
+            .select(ticketSelect)
             .single();
         if (error || !updatedTicket) {
             return res.status(404).json({
@@ -563,10 +877,23 @@ router.patch("/:id", async (req, res) => {
                 error: error?.message,
             });
         }
+        if (customerId) {
+            await supabase_1.supabase
+                .from("communications")
+                .update({ customer_id: customerId })
+                .eq("ticket_id", id);
+            await supabase_1.supabase
+                .from("attachments")
+                .update({ customer_id: customerId })
+                .eq("ticket_id", id);
+        }
         return res.json({
             success: true,
             message: "Ticket updated successfully",
-            data: updatedTicket,
+            data: {
+                ticket: updatedTicket,
+                customer: updatedCustomer,
+            },
         });
     }
     catch {

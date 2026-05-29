@@ -15,7 +15,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=n8n_default"
-      - "traefik.http.routers.ticketing-backend.rule=Host(`api-tickets.perraro.cloud`)"
+      - "traefik.http.routers.ticketing-backend.rule=Host(`api-tickets.example.com`)"
       - "traefik.http.routers.ticketing-backend.entrypoints=websecure"
       - "traefik.http.routers.ticketing-backend.tls=true"
       - "traefik.http.routers.ticketing-backend.tls.certresolver=mytlschallenge"
@@ -33,14 +33,14 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: https://api-tickets.perraro.cloud
+        VITE_API_BASE_URL: https://api-tickets.example.com
     restart: unless-stopped
     depends_on:
       - ticketing-backend
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=n8n_default"
-      - "traefik.http.routers.ticketing-frontend.rule=Host(`tickets.perraro.cloud`)"
+      - "traefik.http.routers.ticketing-frontend.rule=Host(`tickets.example.com`)"
       - "traefik.http.routers.ticketing-frontend.entrypoints=websecure"
       - "traefik.http.routers.ticketing-frontend.tls=true"
       - "traefik.http.routers.ticketing-frontend.tls.certresolver=mytlschallenge"

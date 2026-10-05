@@ -14,8 +14,8 @@ This folder deploys only the ticketing system services. Do not run commands from
 
 Create DNS `A` records pointing to this VPS public IPv4 address:
 
-- `tickets.perraro.cloud`
-- `api-tickets.perraro.cloud`
+- `tickets.example.com`
+- `api-tickets.example.com`
 
 If IPv6 is used on this VPS, also create matching `AAAA` records.
 
@@ -29,7 +29,7 @@ Required values:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `JWT_SECRET`
-- `CORS_ORIGINS=https://tickets.perraro.cloud`
+- `CORS_ORIGINS=https://tickets.example.com`
 - `INTAKE_SECRET`
 - `OPENPHONE_API_KEY`
 - `OPENPHONE_PHONE_NUMBER_ID`
